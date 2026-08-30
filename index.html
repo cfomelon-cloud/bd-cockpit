@@ -189,15 +189,17 @@
       <div><h1>Private Capital · BD Cockpit</h1><small>Personal prospecting & intermediary command centre</small></div>
     </div>
     <p class="lead" id="lockLead">Set a passcode to encrypt your data on this device. Everything is stored locally and encrypted — nothing is uploaded.</p>
-    <div class="field">
-      <label id="pcLabel">Create passcode</label>
-      <input id="pc1" type="password" autocomplete="new-password" placeholder="Enter passcode" />
+    <div id="stdUnlock">
+      <div class="field">
+        <label id="pcLabel">Create passcode</label>
+        <input id="pc1" type="password" autocomplete="new-password" placeholder="Enter passcode" />
+      </div>
+      <div class="field" id="pc2wrap">
+        <label>Confirm passcode</label>
+        <input id="pc2" type="password" autocomplete="new-password" placeholder="Re-enter passcode" />
+      </div>
+      <button class="btn" id="unlockBtn">Unlock</button>
     </div>
-    <div class="field" id="pc2wrap">
-      <label>Confirm passcode</label>
-      <input id="pc2" type="password" autocomplete="new-password" placeholder="Re-enter passcode" />
-    </div>
-    <button class="btn" id="unlockBtn">Unlock</button>
     <div class="err" id="lockErr"></div>
     <div class="hint" id="lockHint">
       Tip: choose something strong and memorable — there is no reset. If you forget it, use “Restore from vault file” with a backup.
@@ -205,6 +207,14 @@
       <a id="restoreLink">Restore from an exported vault file →</a>
       <br><a id="cloudRestoreLink">Restore from cloud sync (new device) →</a>
       <input id="restoreFile" type="file" accept="application/json,.json" class="hidden" />
+    </div>
+    <div id="cloudForm" class="hidden">
+      <p class="lead" style="margin:0 0 14px">Restore this device from your cloud sync. Enter the details from your main device (Settings → Cloud auto-sync) — all three are needed.</p>
+      <div class="field"><label>GitHub token (gist scope)</label><input id="cToken" type="password" autocomplete="off" placeholder="ghp_…" /></div>
+      <div class="field"><label>Vault Gist ID</label><input id="cGist" type="text" autocomplete="off" autocapitalize="off" placeholder="e.g. 3a7f9b2c1d…" /></div>
+      <div class="field"><label>Passcode</label><input id="cPass" type="password" autocomplete="off" placeholder="your usual passcode" /></div>
+      <button class="btn" id="cloudGo">Restore &amp; unlock</button>
+      <div class="hint" style="margin-top:12px"><a id="cloudBack">← back to passcode unlock</a></div>
     </div>
   </div>
 </div>
@@ -1075,21 +1085,35 @@ function disableSync(){
   if(!confirm('Disable cloud sync on this device? Your local encrypted data stays, and the Gist is not deleted.'))return;
   STATE.settings.sync.enabled=false; queueSave(); VIEWS.settings();
 }
+function showCloudForm(show){
+  $('#cloudForm').classList.toggle('hidden',!show);
+  $('#stdUnlock').classList.toggle('hidden',show);
+  $('#lockHint').classList.toggle('hidden',show);
+  $('#lockErr').textContent='';
+}
 async function restoreFromCloud(){
   const err=$('#lockErr'); err.textContent='';
-  const token=prompt('Cloud restore — paste your GitHub token (gist scope):'); if(!token)return;
-  const gistId=prompt('Paste the Vault Gist ID (from your other device: Settings → Cloud auto-sync):'); if(!gistId)return;
-  const pass=prompt('Enter your passcode:'); if(!pass)return;
+  const token=$('#cToken').value.trim(), gistId=$('#cGist').value.trim(), pass=$('#cPass').value;
+  if(!token || !gistId || !pass){ err.textContent='Please fill in all three: token, Gist ID and passcode.'; return; }
+  if(!storageOK()){ err.textContent='This browser is blocking local storage — turn OFF Private Browsing for this site, then try again.'; return; }
+  const btn=$('#cloudGo'); const old=btn.textContent; btn.textContent='Restoring…'; btn.disabled=true;
   try{
-    const g=await ghFetch('/gists/'+gistId.trim(),{},token.trim());
+    const g=await ghFetch('/gists/'+gistId,{},token);
     const f=Object.values(g.files)[0]; const remote=JSON.parse(f.content);
     const {key}=await deriveKey(pass,remote.salt);
     STATE=await decryptState(remote,key); CRYPTO_KEY=key; VAULT_SALT=remote.salt; PASSCODE=pass;
     if(!STATE.settings.sync)STATE.settings.sync={filename:'pc-bd-vault.json'};
-    Object.assign(STATE.settings.sync,{enabled:true,token:token.trim(),gistId:gistId.trim(),filename:f.filename||'pc-bd-vault.json'});
+    Object.assign(STATE.settings.sync,{enabled:true,token,gistId,filename:f.filename||'pc-bd-vault.json'});
     localStorage.setItem(LS_KEY,f.content); await save(); launch();
-  }catch(e){ err.textContent='Cloud restore failed — '+e.message+' (check token, Gist ID and passcode).'; }
+  }catch(e){
+    let msg=e.message;
+    if(/401|403|Bad credentials/i.test(msg)) msg='the token was rejected — check it has the "gist" scope and hasn’t expired.';
+    else if(/404|Not Found/i.test(msg)) msg='that Gist ID wasn’t found for this token.';
+    else if(/decrypt|operation-specific/i.test(msg)) msg='the passcode didn’t match this vault.';
+    err.textContent='Cloud restore failed — '+msg;
+  } finally { btn.textContent=old; btn.disabled=false; }
 }
+function storageOK(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch{ return false; } }
 async function importContacts(e){
   const file=e.target.files[0]; if(!file){return;}
   try{
@@ -1163,6 +1187,7 @@ function initLockUI(){
 }
 async function doUnlock(){
   const err=$('#lockErr'); err.textContent='';
+  if(!storageOK()){ err.textContent='This browser is blocking local storage — please turn OFF Private Browsing for this site, then reload.'; return; }
   const p1=$('#pc1').value, blob=existingBlob();
   if(blob){ // returning
     try{
@@ -1210,7 +1235,9 @@ $('#pc1').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
 $('#pc2').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
 $('#lockNow').onclick=lockNow;
 $('#restoreLink').onclick=()=>$('#restoreFile').click();
-$('#cloudRestoreLink').onclick=restoreFromCloud;
+$('#cloudRestoreLink').onclick=()=>showCloudForm(true);
+$('#cloudBack').onclick=()=>showCloudForm(false);
+$('#cloudGo').onclick=restoreFromCloud;
 $('#restoreFile').addEventListener('change',restoreFromFile);
 $$('#nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.view)));
 initLockUI();
