@@ -1,0 +1,1124 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Private Capital · BD Cockpit</title>
+<!--
+  PRIVATE CAPITAL — PERSONAL BD COCKPIT
+  ------------------------------------------------------------------
+  A single-file, self-contained business-development command centre.
+  - No external libraries, no servers, no analytics. Everything runs in your browser.
+  - ALL data is encrypted on your device (AES-GCM, key derived from your passcode via PBKDF2).
+  - Nothing personal is ever sent anywhere. GitHub only ever hosts this code file.
+  - Move your data between devices with Settings > Export Vault (keep the file in iCloud).
+  This is a PERSONAL toolbox. Keep it separate from firm systems.
+-->
+<style>
+  :root{
+    --ey-yellow:#FFE600;
+    --ey-yellow-dim:#c9b600;
+    --ink:#2E2E38;         /* EY charcoal */
+    --ink-2:#23232b;
+    --ink-3:#1b1b21;
+    --panel:#2b2b34;
+    --panel-2:#33333d;
+    --line:#3f3f4a;
+    --text:#f4f4f6;
+    --muted:#a6a6b2;
+    --muted-2:#7d7d8a;
+    --good:#3ecf8e;
+    --warn:#ffb020;
+    --bad:#ff5c6c;
+    --info:#4aa3ff;
+    --radius:14px;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #34343f 0%, var(--ink) 40%, var(--ink-3) 100%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--info);text-decoration:none}
+  button{font-family:inherit}
+  .hidden{display:none !important}
+
+  /* ---------- Lock screen ---------- */
+  #lock{
+    position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(900px 500px at 50% 0%, #3a3a45, var(--ink-3));
+  }
+  .lockcard{width:min(420px,92vw);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:34px 30px;box-shadow:var(--shadow)}
+  .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .logo{width:40px;height:40px;border-radius:10px;background:var(--ey-yellow);color:#000;font-weight:800;display:grid;place-items:center;font-size:20px}
+  .brandrow h1{font-size:18px;margin:0;letter-spacing:.3px}
+  .brandrow small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+  .lockcard p.lead{color:var(--muted);font-size:13px;line-height:1.5;margin:14px 0 18px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input,select,textarea{
+    width:100%;background:var(--ink-2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:11px 12px;font-size:14px;outline:none
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--ey-yellow)}
+  textarea{resize:vertical;min-height:70px}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;justify-content:center;
+    background:var(--ey-yellow);color:#000;border:none;border-radius:10px;
+    padding:11px 16px;font-weight:700;font-size:14px;cursor:pointer;width:100%
+  }
+  .btn:hover{filter:brightness(1.05)}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:600}
+  .btn.small{width:auto;padding:8px 12px;font-size:13px}
+  .btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+  .err{color:var(--bad);font-size:12.5px;margin-top:8px;min-height:16px}
+  .hint{color:var(--muted-2);font-size:11.5px;margin-top:10px;line-height:1.5}
+
+  /* ---------- App shell ---------- */
+  #app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  aside{background:var(--ink-2);border-right:1px solid var(--line);padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+  .navbrand{display:flex;align-items:center;gap:10px;margin:4px 6px 18px}
+  .navbrand .logo{width:34px;height:34px;font-size:17px;border-radius:9px}
+  .navbrand h1{font-size:15px;margin:0}
+  .navbrand small{color:var(--muted);font-size:11px}
+  nav a{
+    display:flex;align-items:center;gap:11px;color:var(--muted);padding:10px 12px;border-radius:10px;
+    font-size:14px;cursor:pointer;margin-bottom:2px;font-weight:500
+  }
+  nav a .ic{width:18px;text-align:center}
+  nav a:hover{background:var(--panel);color:var(--text)}
+  nav a.active{background:var(--ey-yellow);color:#000;font-weight:700}
+  nav .navlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted-2);margin:16px 12px 6px}
+  .navbadge{margin-left:auto;background:var(--bad);color:#fff;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px}
+  nav a.active .navbadge{background:#000;color:var(--ey-yellow)}
+
+  main{padding:22px 26px 60px;max-width:1180px}
+  .topbar{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .topbar .date{color:var(--muted);font-size:13px}
+  .topbar .spacer{flex:1}
+  .pagehead{margin:0 0 4px;font-size:24px;letter-spacing:.2px}
+  .pagesub{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+
+  .grid{display:grid;gap:16px}
+  .cols-2{grid-template-columns:repeat(2,1fr)}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  .cols-4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1000px){.cols-3,.cols-4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:720px){#app{grid-template-columns:1fr}aside{position:static;height:auto}.cols-2,.cols-3,.cols-4{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px}
+  .card h3{margin:0 0 12px;font-size:14px;letter-spacing:.2px}
+  .card h3 .sub{color:var(--muted);font-weight:500;font-size:12px}
+  .kpi .n{font-size:30px;font-weight:800;letter-spacing:.3px}
+  .kpi .l{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .kpi .foot{font-size:12px;margin-top:8px;color:var(--muted)}
+  .accent{color:var(--ey-yellow)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
+  .tag.a{border-color:var(--ey-yellow);color:var(--ey-yellow)}
+  .tag.good{border-color:var(--good);color:var(--good)}
+  .tag.warn{border-color:var(--warn);color:var(--warn)}
+  .tag.bad{border-color:var(--bad);color:var(--bad)}
+  .tag.info{border-color:var(--info);color:var(--info)}
+
+  .actionitem{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+  .actionitem:last-child{border-bottom:none}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none;background:var(--muted)}
+  .dot.bad{background:var(--bad)}.dot.warn{background:var(--warn)}.dot.good{background:var(--good)}.dot.info{background:var(--info)}
+  .actionitem .body{flex:1}
+  .actionitem .t{font-size:13.5px;font-weight:600}
+  .actionitem .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .actionitem .act{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .mini{font-size:12px;padding:5px 9px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer}
+  .mini:hover{border-color:var(--ey-yellow)}
+  .mini.y{background:var(--ey-yellow);color:#000;border-color:var(--ey-yellow);font-weight:700}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none}
+  tbody tr:hover{background:var(--panel-2)}
+  td .sub{color:var(--muted);font-size:11.5px}
+  .row-actions{display:flex;gap:6px}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .toolbar input,.toolbar select{width:auto;padding:8px 10px;font-size:13px}
+  .toolbar .spacer{flex:1}
+  .search{min-width:220px}
+
+  .barrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12.5px}
+  .barrow .lbl{width:130px;color:var(--muted);flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar{flex:1;height:9px;background:var(--ink-2);border-radius:20px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--ey-yellow),var(--ey-yellow-dim));border-radius:20px}
+  .barrow .val{width:74px;text-align:right;color:var(--text);flex:none;font-variant-numeric:tabular-nums}
+
+  /* Modal */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+  .modalcard{width:min(680px,96vw);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .modalhead{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .modalhead h3{margin:0;font-size:16px}
+  .modalhead .x{margin-left:auto;background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+  .modalbody{padding:18px}
+  .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .formgrid .full{grid-column:1/-1}
+  .modalfoot{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
+  .modalfoot .btn{width:auto}
+
+  .insight{background:linear-gradient(180deg,rgba(255,230,0,.08),rgba(255,230,0,0));border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:12px}
+  .insight .h{font-weight:700;font-size:13.5px;margin-bottom:5px;display:flex;gap:8px;align-items:center}
+  .insight p{margin:4px 0 0;font-size:13px;color:var(--text);line-height:1.55}
+  .devcard{border-left:3px solid var(--ey-yellow)}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .empty{color:var(--muted);font-size:13px;padding:14px 2px}
+  .foot-note{color:var(--muted-2);font-size:11.5px;margin-top:22px;line-height:1.6}
+  .lockbtn{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .lockbtn:hover{border-color:var(--ey-yellow)}
+  .savechip{font-size:11.5px;color:var(--good)}
+  .stagepill{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
+  .stage-New{color:var(--muted)}
+  .stage-Call{color:var(--info);border-color:var(--info)}
+  .stage-Proposal{color:var(--warn);border-color:var(--warn)}
+  .stage-Won{color:var(--good);border-color:var(--good)}
+  .stage-Lost{color:var(--bad);border-color:var(--bad)}
+</style>
+
+<!-- ================= LOCK SCREEN ================= -->
+<div id="lock">
+  <div class="lockcard">
+    <div class="brandrow">
+      <div class="logo">PC</div>
+      <div><h1>Private Capital · BD Cockpit</h1><small>Personal prospecting & intermediary command centre</small></div>
+    </div>
+    <p class="lead" id="lockLead">Set a passcode to encrypt your data on this device. Everything is stored locally and encrypted — nothing is uploaded.</p>
+    <div class="field">
+      <label id="pcLabel">Create passcode</label>
+      <input id="pc1" type="password" autocomplete="new-password" placeholder="Enter passcode" />
+    </div>
+    <div class="field" id="pc2wrap">
+      <label>Confirm passcode</label>
+      <input id="pc2" type="password" autocomplete="new-password" placeholder="Re-enter passcode" />
+    </div>
+    <button class="btn" id="unlockBtn">Unlock</button>
+    <div class="err" id="lockErr"></div>
+    <div class="hint" id="lockHint">
+      Tip: choose something strong and memorable — there is no reset. If you forget it, use “Restore from vault file” with a backup.
+      <br><br>
+      <a id="restoreLink">Restore from an exported vault file →</a>
+      <input id="restoreFile" type="file" accept="application/json,.json" class="hidden" />
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <aside>
+    <div class="navbrand">
+      <div class="logo">PC</div>
+      <div><h1>BD Cockpit</h1><small id="whoami">Private Capital</small></div>
+    </div>
+    <nav id="nav">
+      <div class="navlabel">Focus</div>
+      <a data-view="today"><span class="ic">◎</span> Today <span class="navbadge hidden" id="badgeToday">0</span></a>
+      <a data-view="insights"><span class="ic">✦</span> AI Insights</a>
+      <div class="navlabel">Relationships</div>
+      <a data-view="introducers"><span class="ic">◱</span> Introducers</a>
+      <a data-view="cadence"><span class="ic">⟳</span> Catch-in Cadence <span class="navbadge hidden" id="badgeCad">0</span></a>
+      <a data-view="events"><span class="ic">▤</span> Events & Webinars</a>
+      <a data-view="travel"><span class="ic">✈</span> Travel Planner</a>
+      <div class="navlabel">Commercial</div>
+      <a data-view="pipeline"><span class="ic">▦</span> Pipeline</a>
+      <a data-view="revenue"><span class="ic">£</span> Revenue</a>
+      <div class="navlabel">Knowledge</div>
+      <a data-view="knowledge"><span class="ic">▢</span> Library</a>
+      <a data-view="devs"><span class="ic">◈</span> Tax Developments</a>
+      <div class="navlabel">System</div>
+      <a data-view="settings"><span class="ic">⚙</span> Settings</a>
+    </nav>
+  </aside>
+  <main>
+    <div class="topbar">
+      <div>
+        <div class="pagehead" id="pageTitle">Today</div>
+        <div class="date" id="todayDate"></div>
+      </div>
+      <div class="spacer"></div>
+      <span class="savechip" id="saveChip"></span>
+      <button class="lockbtn" id="lockNow">🔒 Lock</button>
+    </div>
+    <div id="view"></div>
+    <div class="foot-note">
+      Personal toolbox · data encrypted on-device · not a firm system. Back up regularly via Settings → Export Vault (keep the file in iCloud so it syncs to all your devices).
+    </div>
+  </main>
+</div>
+
+<!-- ================= MODAL ================= -->
+<div id="modal" class="hidden">
+  <div class="modalcard">
+    <div class="modalhead"><h3 id="modalTitle">Edit</h3><button class="x" id="modalX">×</button></div>
+    <div class="modalbody" id="modalBody"></div>
+    <div class="modalfoot" id="modalFoot"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   0. Small helpers
+   ============================================================ */
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const el = (t,a={},...kids)=>{const n=document.createElement(t);for(const k in a){if(k==='class')n.className=a[k];else if(k==='html')n.innerHTML=a[k];else if(k.startsWith('on'))n.addEventListener(k.slice(2),a[k]);else n.setAttribute(k,a[k]);}for(const c of kids){if(c==null)continue;n.append(c.nodeType?c:document.createTextNode(c));}return n;};
+const uid = ()=> 'x'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+const fmtMoney = n => '£'+Number(n||0).toLocaleString('en-GB');
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const REGIONS=['Hong Kong','Singapore','United Kingdom','Channel Islands','Switzerland','China','United States','Other'];
+const INTRO_TYPES=['Bank','Trustee','External asset manager','Insurance provider','Insurance broker','Family office','Property adviser','Immigration adviser','Lawyer','Art adviser','Other'];
+
+// date utilities (all dates handled as YYYY-MM-DD strings)
+const DAY = 86400000;
+function today(){const d=new Date();d.setHours(0,0,0,0);return d;}
+function iso(d){ if(typeof d==='string') return d.slice(0,10); const x=new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); }
+function parse(s){ if(!s) return null; const p=String(s).slice(0,10).split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function daysBetween(a,b){ return Math.round((parse(iso(b))-parse(iso(a)))/DAY); }
+function addDays(s,n){ const d=parse(s)||today(); d.setDate(d.getDate()+n); return iso(d); }
+function niceDate(s){ const d=parse(s); if(!d)return '—'; return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function relDays(s){ const n=daysBetween(today(),s); if(n===0)return 'today'; if(n<0)return Math.abs(n)+'d ago'; return 'in '+n+'d';}
+
+/* ============================================================
+   1. Encryption layer (WebCrypto: PBKDF2 + AES-GCM)
+   ============================================================ */
+const LS_KEY='pc_bd_vault_v1';
+let CRYPTO_KEY=null, PASSCODE=null;
+const enc=new TextEncoder(), dec=new TextDecoder();
+async function deriveKey(pass,saltB64){
+  const salt=saltB64?Uint8Array.from(atob(saltB64),c=>c.charCodeAt(0)):crypto.getRandomValues(new Uint8Array(16));
+  const base=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  return {key,salt:btoa(String.fromCharCode(...salt))};
+}
+async function encryptState(obj){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const data=enc.encode(JSON.stringify(obj));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},CRYPTO_KEY,data);
+  return {iv:btoa(String.fromCharCode(...iv)),ct:btoa(String.fromCharCode(...new Uint8Array(ct)))};
+}
+async function decryptState(pkg,key){
+  const iv=Uint8Array.from(atob(pkg.iv),c=>c.charCodeAt(0));
+  const ct=Uint8Array.from(atob(pkg.ct),c=>c.charCodeAt(0));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
+  return JSON.parse(dec.decode(pt));
+}
+
+/* ============================================================
+   2. State + persistence
+   ============================================================ */
+let STATE=null, VAULT_SALT=null;
+async function save(){
+  const pkg=await encryptState(STATE);
+  const blob={v:1,salt:VAULT_SALT,...pkg};
+  localStorage.setItem(LS_KEY,JSON.stringify(blob));
+  flashSaved();
+}
+let saveTimer=null;
+function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}
+function flashSaved(){const c=$('#saveChip');c.textContent='✓ Saved';setTimeout(()=>c.textContent='',1400);}
+
+/* ============================================================
+   3. Seed data (realistic samples — replace with your own)
+   ============================================================ */
+function seed(){
+  const t=iso(today());
+  const I=(o)=>Object.assign({id:uid(),cadenceDays:o.tier==='A'?42:o.tier==='B'?60:90,active:true,notes:''},o);
+  const introducers=[
+    I({name:'Amanda Chan',    org:'HSBC Private Banking', region:'Hong Kong',      type:'Bank', tier:'A', role:'Senior RM', owner:'You',        email:'', lastContact:addDays(t,-51)}),
+    I({name:'Victor Leung',   org:'Bank of Singapore',    region:'Singapore',      type:'Bank', tier:'A', role:'Team Head', owner:'You',        email:'', lastContact:addDays(t,-63)}),
+    I({name:'Priya Nair',     org:'Lloyds Private',       region:'United Kingdom', type:'Bank', tier:'B', role:'Director',  owner:'David (team)',email:'', lastContact:addDays(t,-20)}),
+    I({name:'Marcus Webb',    org:'St. James’s Place', region:'United Kingdom', type:'Bank', tier:'A', role:'Partner',   owner:'David (team)',email:'', lastContact:addDays(t,-9)}),
+    I({name:'Sophie Girardin',org:'Pictet',               region:'Switzerland',    type:'Bank', tier:'A', role:'Director',  owner:'You',        email:'', lastContact:addDays(t,-140)}),
+    I({name:'Thomas Roux',    org:'Lombard Odier',        region:'Switzerland',    type:'Bank', tier:'B', role:'RM',         owner:'You',        email:'', lastContact:null}),
+    I({name:'Grace Wong',     org:'Vistra',               region:'Hong Kong',      type:'Trustee',      tier:'A', role:'MD',         owner:'You',        email:'', lastContact:addDays(t,-31)}),
+    I({name:'Daniel Tan',     org:'Trident Trust',        region:'Singapore',      type:'Trustee',      tier:'B', role:'Senior Mgr', owner:'You',        email:'', lastContact:addDays(t,-77)}),
+    I({name:'Hannah Le Gros', org:'JTC Group',            region:'Channel Islands',type:'Trustee',      tier:'B', role:'Director',   owner:'Emma (team)',email:'', lastContact:addDays(t,-44)}),
+    I({name:'Richard Ozanne', org:'Ocorian',              region:'Channel Islands',type:'Trustee',      tier:'C', role:'Manager',    owner:'Emma (team)',email:'', lastContact:addDays(t,-95)}),
+    I({name:'Elena Baumann',  org:'UBS',                  region:'Switzerland',    type:'Bank', tier:'A', role:'ED',         owner:'You',        email:'', lastContact:addDays(t,-66)}),
+    I({name:'James Barclay',  org:'Barclays Private',     region:'United Kingdom', type:'Bank', tier:'B', role:'Director',   owner:'You',        email:'', lastContact:addDays(t,-15)}),
+  ];
+  const byOrg=(o)=>introducers.find(i=>i.org.startsWith(o))||introducers[0];
+  const interactions=[
+    {id:uid(),introducerId:byOrg('HSBC').id, date:addDays(t,-51),channel:'Meeting',summary:'Coffee in Central. She has 3 clients relocating to UK, keen on FIG/TRF briefing.',nextAction:'Send FIG one-pager + propose lunch seminar',nextActionDate:addDays(t,-2),by:'You'},
+    {id:uid(),introducerId:byOrg('St').id,   date:addDays(t,-9), channel:'Call',   summary:'SJP adviser day confirmed. Wants a joint webinar on UK property holding structures.',nextAction:'Draft webinar outline with David',nextActionDate:addDays(t,5),by:'David (team)'},
+    {id:uid(),introducerId:byOrg('Vistra').id,date:addDays(t,-31),channel:'Email',  summary:'Discussed offshore Chinese trust rule changes and impact on a UK propco.',nextAction:'Circulate note on offshore trust changes',nextActionDate:addDays(t,-1),by:'You'},
+  ];
+  const prospects=[
+    {id:uid(),name:'Zhang family',      sourceId:byOrg('HSBC').id,  service:'Pre-immigration planning', region:'Hong Kong', feeProposed:18000,stage:'Proposal',revenue:0,crossTeam:0,dateIn:addDays(t,-24),lastUpdate:addDays(t,-22)},
+    {id:uid(),name:'Chen FIC',          sourceId:byOrg('Bank of Sing').id,service:'FIC set-up & maintenance',region:'Singapore',feeProposed:32000,stage:'Won',revenue:32000,crossTeam:15000,dateIn:addDays(t,-70),lastUpdate:addDays(t,-12)},
+    {id:uid(),name:'Li property SPV',   sourceId:byOrg('Vistra').id,service:'UK property holding structure',region:'Hong Kong',feeProposed:12000,stage:'Call',revenue:0,crossTeam:0,dateIn:addDays(t,-6),lastUpdate:addDays(t,-6)},
+    {id:uid(),name:'Wong Trust',        sourceId:byOrg('JTC').id,   service:'Trust restructuring advice',region:'Channel Islands',feeProposed:26000,stage:'Proposal',revenue:0,crossTeam:0,dateIn:addDays(t,-33),lastUpdate:addDays(t,-30)},
+    {id:uid(),name:'Meier relocation',  sourceId:byOrg('Pictet').id,service:'Tax residence planning',region:'Switzerland',feeProposed:15000,stage:'New',revenue:0,crossTeam:0,dateIn:addDays(t,-3),lastUpdate:addDays(t,-3)},
+    {id:uid(),name:'Tan estate',        sourceId:byOrg('Trident').id,service:'IHT & trust return',region:'Singapore',feeProposed:9000,stage:'Lost',revenue:0,crossTeam:0,dateIn:addDays(t,-55),lastUpdate:addDays(t,-40)},
+  ];
+  const events=[
+    {id:uid(),title:'FIG & TRF: what the new regime means',date:addDays(t,-40),org:'HSBC Private Banking',type:'Webinar',topic:'FIG / TRF',speakers:'You, David',attendees:38,prospects:4,followUp:'Send deck + book 1:1s with 4 warm attendees'},
+    {id:uid(),title:'UK property holding structures',date:addDays(t,12),org:'St. James’s Place',type:'Webinar',topic:'Property / IHT',speakers:'You',attendees:0,prospects:0,followUp:'Finalise slides; dry-run with David'},
+    {id:uid(),title:'Offshore trusts & the Chinese connection',date:addDays(t,26),org:'Vistra',type:'Seminar',topic:'Trusts / China',speakers:'You, Emma',attendees:0,prospects:0,followUp:'Confirm venue + invite list'},
+  ];
+  const knowledge=[
+    {id:uid(),title:'FIG regime — client briefing deck',category:'Deck',topic:'FIG / TRF',link:'',signedOff:'Partner A',notes:'v3 — used at HSBC webinar'},
+    {id:uid(),title:'UK property holding structures — advice precedent',category:'Advice precedent',topic:'Property',link:'',signedOff:'Partner B',notes:'Includes SDLT + ATED appendix'},
+    {id:uid(),title:'Appendix bank — offshore trust technical detail',category:'Appendix',topic:'Trusts',link:'',signedOff:'Partner B',notes:'Risk-management appendix library'},
+    {id:uid(),title:'Personal CV — one page',category:'CV',topic:'Profile',link:'',signedOff:'—',notes:'For proposals'},
+    {id:uid(),title:'Service flyer — Private Capital UK tax',category:'Flyer',topic:'Marketing',link:'',signedOff:'Partner A',notes:'Master brochure'},
+  ];
+  const travel=[
+    {id:uid(),destination:'Hong Kong',region:'Hong Kong',start:addDays(t,20),end:addDays(t,25),purpose:'Client + intermediary visits',meetingIds:[byOrg('HSBC').id,byOrg('Vistra').id],notes:'Line up dinners; combine with Vistra seminar prep'},
+    {id:uid(),destination:'Zurich / Geneva',region:'Switzerland',start:addDays(t,48),end:addDays(t,53),purpose:'Build Swiss network',meetingIds:[byOrg('Pictet').id,byOrg('UBS').id,byOrg('Lombard').id],notes:'First Switzerland trip — introductions via UBS'},
+  ];
+  [...introducers,...interactions,...prospects,...events,...knowledge,...travel].forEach(o=>{o._sample=true;});
+  return {
+    settings:{userName:'You',cadenceA:42,cadenceB:60,cadenceC:90,created:t},
+    introducers,interactions,prospects,events,knowledge,travel,
+    log:[] // completed action log
+  };
+}
+
+/* ============================================================
+   4. Derived / analytics helpers
+   ============================================================ */
+function introById(id){return STATE.introducers.find(i=>i.id===id);}
+function cadenceDays(i){return i.cadenceDays || (i.tier==='A'?STATE.settings.cadenceA:i.tier==='B'?STATE.settings.cadenceB:STATE.settings.cadenceC);}
+function nextDue(i){ if(!i.lastContact) return {date:iso(today()),overdue:true,never:true}; const d=addDays(i.lastContact,cadenceDays(i)); return {date:d,overdue:daysBetween(today(),d)<=0,never:false};}
+function overdueIntroducers(){ return STATE.introducers.filter(i=>i.active).map(i=>({i,due:nextDue(i)})).filter(x=>x.due.overdue).sort((a,b)=>parse(a.due.date)-parse(b.due.date)); }
+function dueFollowUps(){ return STATE.interactions.filter(x=>x.nextAction && x.nextActionDate && daysBetween(today(),x.nextActionDate)<=0).sort((a,b)=>parse(a.nextActionDate)-parse(b.nextActionDate)); }
+function staleProposals(){ return STATE.prospects.filter(p=>p.stage==='Proposal' && daysBetween(p.lastUpdate,today())>=7); }
+function upcomingEvents(days=21){ return STATE.events.filter(e=>{const n=daysBetween(today(),e.date);return n>=0&&n<=days;}).sort((a,b)=>parse(a.date)-parse(b.date)); }
+function upcomingTravel(){ return STATE.travel.filter(t=>daysBetween(today(),t.end)>=0).sort((a,b)=>parse(a.start)-parse(b.start)); }
+function wonRevenue(){ return STATE.prospects.filter(p=>p.stage==='Won').reduce((s,p)=>s+ (+p.revenue||0),0); }
+function crossRevenue(){ return STATE.prospects.reduce((s,p)=>s+(+p.crossTeam||0),0); }
+function pipelineValue(){ return STATE.prospects.filter(p=>['New','Call','Proposal'].includes(p.stage)).reduce((s,p)=>s+(+p.feeProposed||0),0); }
+function conversionRate(){ const decided=STATE.prospects.filter(p=>['Won','Lost'].includes(p.stage)); if(!decided.length)return 0; return Math.round(100*decided.filter(p=>p.stage==='Won').length/decided.length); }
+
+/* ============================================================
+   5. Tax developments (BD talking points)
+   ============================================================ */
+const DEVS=[
+  {t:'FIG regime — experience sharing',tag:'FIG / TRF',body:'The Foreign Income & Gains regime replaced the remittance basis. Frame conversations around the 4-year window for new arrivals, and who is caught when the window closes. Great hook for pre-immigration and investment-timing conversations with HK/Singapore banks.'},
+  {t:'Temporary Repatriation Facility (TRF)',tag:'FIG / TRF',body:'The TRF gives a limited window to bring pre-regime foreign income and gains onshore at a reduced rate. High-relevance for long-term resident non-doms — a concrete, time-limited reason for intermediaries to introduce clients NOW.'},
+  {t:'Offshore Chinese trust rules — impact on UK/Chinese companies',tag:'Trusts / China',body:'Recent tightening around offshore Chinese trust structures changes how UK-connected companies inside those trusts are treated. Position this as a restructuring trigger — trustees in HK/SG will want a technical readout and a review of exposed structures.'},
+  {t:'Offshore insurance rules — impact on UK/Chinese companies',tag:'Insurance',body:'Changes to offshore insurance treatment affect wrappers commonly used by HK/China families holding UK assets. Strong door-opener for private banks: offer a “does your wrapper still work?” health-check.'},
+];
+
+/* ============================================================
+   6. AI Insights engine (on-device, rules-based briefing)
+   ============================================================ */
+function buildInsights(){
+  const out=[];
+  const od=overdueIntroducers();
+  if(od.length){
+    const topA=od.filter(x=>x.i.tier==='A');
+    out.push({icon:'⟳',h:`${od.length} intermediaries are due a catch-in`,p:`${topA.length? topA.length+' are Tier-A priority. ':''}Start with ${od.slice(0,3).map(x=>x.i.name+' ('+x.i.org+')').join(', ')}. Consistency here is the single biggest driver of referral flow — a 2-monthly rhythm keeps you top-of-mind.`});
+  }
+  const fu=dueFollowUps();
+  if(fu.length){ out.push({icon:'✦',h:`${fu.length} follow-up${fu.length>1?'s':''} you committed to are due`,p:`These are promises already made — clearing them protects your credibility. Next: “${fu[0].nextAction}” for ${introById(fu[0].introducerId)?.org||'—'}.`}); }
+  const sp=staleProposals();
+  if(sp.length){ out.push({icon:'▦',h:`${sp.length} proposal${sp.length>1?'s are':' is'} going cold`,p:`Proposals sent 7+ days ago with no movement (${sp.map(p=>p.name).join(', ')}). This is exactly where the team loses conversions. A light-touch nudge now materially lifts your win rate.`}); }
+  const ue=upcomingEvents(21);
+  if(ue.length){ const e=ue[0]; out.push({icon:'▤',h:`Event in ${daysBetween(today(),e.date)} days: ${e.title}`,p:`With ${e.org}. Prep the deck, confirm speakers (${e.speakers}), and pre-line 1:1s so the session converts into pipeline, not just attendance.`}); }
+  const ut=upcomingTravel();
+  if(ut.length){ const tr=ut[0]; const names=(tr.meetingIds||[]).map(id=>introById(id)?.name).filter(Boolean); out.push({icon:'✈',h:`Trip coming up: ${tr.destination} (${relDays(tr.start)})`,p:`Lock in meetings while you're there${names.length? ': '+names.join(', '):''}. ${tr.region==='Switzerland'?'This is network-building — aim to leave with 2–3 warm follow-ups.':'Bunch intermediary catch-ins to maximise the trip.'}`}); }
+  if(!out.length) out.push({icon:'✓',h:'You are on top of it',p:'No overdue catch-ins, follow-ups, or cold proposals. Good moment to plan an event or deepen a Tier-A relationship.'});
+  return out;
+}
+// A prioritised "do today" list combining everything
+function todayActions(){
+  const items=[];
+  overdueIntroducers().forEach(x=>{
+    const d=x.due.never?'Never contacted':'Due '+relDays(x.due.date);
+    items.push({sev:x.i.tier==='A'?'bad':'warn',type:'catchin',refId:x.i.id,
+      t:`Catch-in: ${x.i.name} · ${x.i.org}`,
+      d:`${x.i.type} · ${x.i.region} · Tier ${x.i.tier} · ${d}`});
+  });
+  dueFollowUps().forEach(f=>{
+    items.push({sev:'warn',type:'followup',refId:f.id,
+      t:`Follow-up: ${f.nextAction}`,
+      d:`${introById(f.introducerId)?.org||'—'} · promised for ${niceDate(f.nextActionDate)}`});
+  });
+  staleProposals().forEach(p=>{
+    items.push({sev:'info',type:'prospect',refId:p.id,
+      t:`Chase proposal: ${p.name}`,
+      d:`${fmtMoney(p.feeProposed)} · ${p.service} · no update for ${daysBetween(p.lastUpdate,today())}d`});
+  });
+  upcomingEvents(10).forEach(e=>{
+    items.push({sev:'good',type:'event',refId:e.id,
+      t:`Prep event: ${e.title}`,
+      d:`${e.org} · ${relDays(e.date)} · ${e.followUp||''}`});
+  });
+  const order={bad:0,warn:1,info:2,good:3};
+  return items.sort((a,b)=>order[a.sev]-order[b.sev]);
+}
+
+/* ============================================================
+   7. Router + views
+   ============================================================ */
+const TITLES={today:'Today',insights:'AI Insights',introducers:'Introducers',cadence:'Catch-in Cadence',events:'Events & Webinars',travel:'Travel Planner',pipeline:'Pipeline',revenue:'Revenue',knowledge:'Knowledge Library',devs:'Tax Developments',settings:'Settings'};
+let CUR='today';
+function go(view){
+  CUR=view;
+  $$('#nav a').forEach(a=>a.classList.toggle('active',a.dataset.view===view));
+  $('#pageTitle').textContent=TITLES[view];
+  VIEWS[view]();
+}
+function render(nodes){ const v=$('#view'); v.innerHTML=''; (Array.isArray(nodes)?nodes:[nodes]).forEach(n=>v.append(n)); }
+
+function updateBadges(){
+  const cap=x=>x>99?'99+':String(x);
+  const n=todayActions().length;
+  const bT=$('#badgeToday'); bT.textContent=cap(n); bT.classList.toggle('hidden',n===0);
+  const c=overdueIntroducers().length;
+  const bC=$('#badgeCad'); bC.textContent=cap(c); bC.classList.toggle('hidden',c===0);
+}
+
+const VIEWS={};
+
+/* ---------- TODAY ---------- */
+VIEWS.today=()=>{
+  const acts=todayActions();
+  const dev=DEVS[ (daysBetween(STATE.settings.created,today())) % DEVS.length ];
+  const kpis=el('div',{class:'grid cols-4'},
+    kpi(acts.length,'Actions for today', acts.length?'Clear these to keep flow':'All clear ✓'),
+    kpi(overdueIntroducers().length,'Catch-ins overdue','Tier-A first'),
+    kpi(fmtMoney(pipelineValue()),'Open pipeline', STATE.prospects.filter(p=>['New','Call','Proposal'].includes(p.stage)).length+' live prospects'),
+    kpi(conversionRate()+'%','Win rate','of decided proposals')
+  );
+  const list=el('div',{class:'card'}, el('h3',{},'Your action list ', el('span',{class:'sub'},'· prioritised · top of the day')));
+  if(!acts.length) list.append(el('div',{class:'empty'},'Nothing outstanding — plan an event or a Tier-A touch.'));
+  const CAP=6; let shownCatch=0, hiddenCatch=0;
+  acts.forEach(a=>{
+    if(a.type==='catchin'){ if(shownCatch>=CAP){hiddenCatch++;return;} shownCatch++; }
+    list.append(actionRow(a));
+  });
+  if(hiddenCatch) list.append(el('div',{class:'actionitem'},
+    el('div',{class:'dot warn'}),
+    el('div',{class:'body'},
+      el('div',{class:'t'},'+ '+hiddenCatch+' more catch-ins due'),
+      el('div',{class:'d'},'Work the full prioritised list (Tier-A first) in Catch-in Cadence.'),
+      el('div',{class:'act'},el('button',{class:'mini y',onclick:()=>go('cadence')},'Open Cadence')))));
+  const devCard=el('div',{class:'card insight devcard'},
+    el('div',{class:'h'},'◈ Talking point of the day · '+dev.tag),
+    el('div',{class:'t',style:'font-weight:700;font-size:14px;margin-bottom:4px'},dev.t),
+    el('p',{},dev.body));
+  render([kpis, el('div',{class:'grid cols-2',style:'align-items:start'}, list, devCard)]);
+};
+function kpi(n,l,foot){ return el('div',{class:'card kpi'}, el('div',{class:'n'},String(n)), el('div',{class:'l'},l), foot?el('div',{class:'foot'},foot):null); }
+function actionRow(a){
+  return el('div',{class:'actionitem'},
+    el('div',{class:'dot '+a.sev}),
+    el('div',{class:'body'},
+      el('div',{class:'t'},a.t),
+      el('div',{class:'d'},a.d),
+      el('div',{class:'act'},
+        el('button',{class:'mini y',onclick:()=>completeAction(a)},'Mark done'),
+        el('button',{class:'mini',onclick:()=>jumpTo(a)},'Open')
+      )
+    )
+  );
+}
+function completeAction(a){
+  STATE.log.push({date:iso(today()),what:a.t});
+  if(a.type==='catchin'){ const i=introById(a.refId); if(i) i.lastContact=iso(today()); }
+  if(a.type==='followup'){ const f=STATE.interactions.find(x=>x.id===a.refId); if(f){f.nextAction='';f.nextActionDate='';} }
+  if(a.type==='prospect'){ const p=STATE.prospects.find(x=>x.id===a.refId); if(p) p.lastUpdate=iso(today()); }
+  queueSave(); updateBadges(); VIEWS.today();
+}
+function jumpTo(a){ if(a.type==='catchin')go('introducers'); else if(a.type==='followup')go('introducers'); else if(a.type==='prospect')go('pipeline'); else if(a.type==='event')go('events'); }
+
+/* ---------- INSIGHTS ---------- */
+VIEWS.insights=()=>{
+  const ins=buildInsights();
+  const wrap=el('div',{});
+  wrap.append(el('p',{class:'pagesub'},'On-device briefing — generated from your data. No cloud, no API keys. Refreshes as you update the cockpit.'));
+  ins.forEach(i=>wrap.append(el('div',{class:'insight'}, el('div',{class:'h'}, i.icon+' '+i.h), el('p',{},i.p))));
+  // suggested weekly rhythm
+  const rhythm=el('div',{class:'card'}, el('h3',{},'Suggested weekly rhythm'),
+    el('div',{class:'actionitem'},el('div',{class:'dot good'}),el('div',{class:'body'},el('div',{class:'t'},'Mon — Plan & clear follow-ups'),el('div',{class:'d'},'Review Today list; clear anything promised last week.'))),
+    el('div',{class:'actionitem'},el('div',{class:'dot info'}),el('div',{class:'body'},el('div',{class:'t'},'Tue/Wed — Catch-ins'),el('div',{class:'d'},'2–3 intermediary calls/coffees; log each straight after.'))),
+    el('div',{class:'actionitem'},el('div',{class:'dot warn'}),el('div',{class:'body'},el('div',{class:'t'},'Thu — Pipeline chase'),el('div',{class:'d'},'Nudge every proposal older than 7 days.'))),
+    el('div',{class:'actionitem'},el('div',{class:'dot good'}),el('div',{class:'body'},el('div',{class:'t'},'Fri — Content & events'),el('div',{class:'d'},'Advance the next webinar; add to the library.')))
+  );
+  render([wrap, rhythm]);
+};
+
+/* ---------- INTRODUCERS ---------- */
+let introFilter={q:'',region:'',type:'',tier:'',owner:''}, introSort={k:'due',dir:1};
+VIEWS.introducers=()=>{
+  const bar=el('div',{class:'toolbar'});
+  bar.append(
+    el('input',{class:'search',placeholder:'Search name / org…',value:introFilter.q,oninput:e=>{introFilter.q=e.target.value;renderIntroTable();}}),
+    selectFilter('region',REGIONS,'All regions'),
+    selectFilter('type',INTRO_TYPES,'All types'),
+    selectFilter('tier',['A','B','C'],'All tiers'),
+    selectFilter('owner',[...new Set(STATE.introducers.map(i=>i.owner))],'All owners'),
+    el('div',{class:'spacer'}),
+    el('button',{class:'btn small',onclick:()=>editIntroducer()},'+ Add introducer')
+  );
+  const tableWrap=el('div',{class:'card',id:'introCard'});
+  render([bar,tableWrap]);
+  renderIntroTable();
+};
+function selectFilter(key,opts,all){
+  const s=el('select',{onchange:e=>{introFilter[key]=e.target.value;renderIntroTable();}}, el('option',{value:''},all));
+  opts.forEach(o=>s.append(el('option',{value:o, ...(introFilter[key]===o?{selected:'1'}:{})},o)));
+  return s;
+}
+function renderIntroTable(){
+  const card=$('#introCard'); if(!card)return; card.innerHTML='';
+  let rows=STATE.introducers.filter(i=>{
+    if(introFilter.q){const q=introFilter.q.toLowerCase();if(!(i.name+' '+i.org).toLowerCase().includes(q))return false;}
+    if(introFilter.region&&i.region!==introFilter.region)return false;
+    if(introFilter.type&&i.type!==introFilter.type)return false;
+    if(introFilter.tier&&i.tier!==introFilter.tier)return false;
+    if(introFilter.owner&&i.owner!==introFilter.owner)return false;
+    return true;
+  }).map(i=>({i,due:nextDue(i)}));
+  rows.sort((a,b)=>{
+    let r=0; const k=introSort.k;
+    if(k==='due')r=parse(a.due.date)-parse(b.due.date);
+    else if(k==='name')r=a.i.name.localeCompare(b.i.name);
+    else if(k==='org')r=a.i.org.localeCompare(b.i.org);
+    else if(k==='tier')r=a.i.tier.localeCompare(b.i.tier);
+    else if(k==='last')r=parse(a.i.lastContact||'1970-01-01')-parse(b.i.lastContact||'1970-01-01');
+    return r*introSort.dir;
+  });
+  const th=(k,label)=>el('th',{onclick:()=>{introSort.dir=(introSort.k===k?-introSort.dir:1);introSort.k=k;renderIntroTable();}}, label+(introSort.k===k?(introSort.dir>0?' ▲':' ▼'):''));
+  const table=el('table',{},el('thead',{},el('tr',{},th('name','Contact'),th('org','Organisation'),el('th',{},'Region / Type'),th('tier','Tier'),el('th',{},'Owner'),th('last','Last contact'),th('due','Next catch-in'),el('th',{},''))));
+  const tb=el('tbody');
+  if(!rows.length) tb.append(el('tr',{},el('td',{colspan:'8'},el('div',{class:'empty'},'No introducers match. Add one, or adjust filters.'))));
+  rows.forEach(({i,due})=>{
+    const overdue=due.overdue;
+    tb.append(el('tr',{},
+      el('td',{},el('div',{style:'font-weight:600'},i.name),el('div',{class:'sub'},i.role||'')),
+      el('td',{},i.org),
+      el('td',{},i.region,el('div',{class:'sub'},i.type)),
+      el('td',{},el('span',{class:'tag'+(i.tier==='A'?' a':'')},i.tier)),
+      el('td',{},el('span',{class:'sub'},i.owner)),
+      el('td',{}, i.lastContact?niceDate(i.lastContact):el('span',{class:'tag bad'},'never')),
+      el('td',{}, el('span',{class:'tag '+(overdue?'bad':'good')}, due.never?'now':relDays(due.date))),
+      el('td',{},el('div',{class:'row-actions'},
+        el('button',{class:'mini y',onclick:()=>logInteraction(i.id)},'Log'),
+        el('button',{class:'mini',onclick:()=>editIntroducer(i)},'Edit'),
+        el('button',{class:'mini',onclick:()=>viewIntroducer(i)},'View')
+      ))
+    ));
+  });
+  table.append(tb);
+  card.append(el('h3',{},rows.length+' introducers ',el('span',{class:'sub'},'· click a column to sort')),table);
+}
+
+/* ---------- CADENCE ---------- */
+VIEWS.cadence=()=>{
+  const od=overdueIntroducers();
+  const soon=STATE.introducers.filter(i=>i.active).map(i=>({i,due:nextDue(i)})).filter(x=>!x.due.overdue && daysBetween(today(),x.due.date)<=14).sort((a,b)=>parse(a.due.date)-parse(b.due.date));
+  const mine=od.filter(x=>x.i.owner==='You');
+  render([
+    el('div',{class:'grid cols-3'},
+      kpi(od.length,'Overdue catch-ins','across the team'),
+      kpi(mine.length,'Overdue — yours','owner = You'),
+      kpi(soon.length,'Due in next 14 days','get ahead of these')
+    ),
+    cadenceList('Overdue now',od,true),
+    cadenceList('Coming up (14 days)',soon,false)
+  ]);
+};
+function cadenceList(title,rows,overdue){
+  const card=el('div',{class:'card'},el('h3',{},title+' · '+rows.length));
+  if(!rows.length){card.append(el('div',{class:'empty'},'Nothing here — nice.'));return card;}
+  rows.forEach(({i,due})=>{
+    card.append(el('div',{class:'actionitem'},
+      el('div',{class:'dot '+(overdue?(i.tier==='A'?'bad':'warn'):'good')}),
+      el('div',{class:'body'},
+        el('div',{class:'t'},`${i.name} · ${i.org}`),
+        el('div',{class:'d'},`${i.type} · ${i.region} · Tier ${i.tier} · owner ${i.owner} · ${due.never?'never contacted':(overdue?'overdue '+relDays(due.date):'due '+relDays(due.date))}`),
+        el('div',{class:'act'},
+          el('button',{class:'mini y',onclick:()=>logInteraction(i.id)},'Log catch-in'),
+          el('button',{class:'mini',onclick:()=>viewIntroducer(i)},'History')
+        )
+      )
+    ));
+  });
+  return card;
+}
+
+/* ---------- EVENTS ---------- */
+VIEWS.events=()=>{
+  const up=STATE.events.filter(e=>daysBetween(today(),e.date)>=0).sort((a,b)=>parse(a.date)-parse(b.date));
+  const past=STATE.events.filter(e=>daysBetween(today(),e.date)<0).sort((a,b)=>parse(b.date)-parse(a.date));
+  const totalProspects=STATE.events.reduce((s,e)=>s+(+e.prospects||0),0);
+  const bar=el('div',{class:'toolbar'},el('div',{class:'spacer'}),el('button',{class:'btn small',onclick:()=>editEvent()},'+ Add event'));
+  render([
+    el('div',{class:'grid cols-3'},
+      kpi(up.length,'Upcoming events','next in '+(up.length?relDays(up[0].date):'—')),
+      kpi(past.length,'Past sessions','delivered'),
+      kpi(totalProspects,'Prospects generated','from events')
+    ),
+    bar,
+    eventTable('Upcoming',up),
+    eventTable('Past — with outcomes',past)
+  ]);
+};
+function eventTable(title,rows){
+  const card=el('div',{class:'card'},el('h3',{},title+' · '+rows.length));
+  if(!rows.length){card.append(el('div',{class:'empty'},'None yet.'));return card;}
+  const table=el('table',{},el('thead',{},el('tr',{},el('th',{},'Date'),el('th',{},'Session'),el('th',{},'Intermediary'),el('th',{},'Speakers'),el('th',{},'Attendees'),el('th',{},'Prospects'),el('th',{},''))));
+  const tb=el('tbody');
+  rows.forEach(e=>{
+    tb.append(el('tr',{},
+      el('td',{},niceDate(e.date),el('div',{class:'sub'},relDays(e.date))),
+      el('td',{},el('div',{style:'font-weight:600'},e.title),el('div',{class:'sub'},e.type+' · '+e.topic),e.followUp?el('div',{class:'sub',style:'color:var(--warn)'},'↳ '+e.followUp):null),
+      el('td',{},e.org),
+      el('td',{},el('span',{class:'sub'},e.speakers||'—')),
+      el('td',{},e.attendees||'—'),
+      el('td',{},el('span',{class:'tag'+((+e.prospects)?' good':'')},e.prospects||0)),
+      el('td',{},el('button',{class:'mini',onclick:()=>editEvent(e)},'Edit'))
+    ));
+  });
+  table.append(tb);card.append(table);return card;
+}
+
+/* ---------- TRAVEL ---------- */
+VIEWS.travel=()=>{
+  const trips=STATE.travel.slice().sort((a,b)=>parse(a.start)-parse(b.start));
+  const bar=el('div',{class:'toolbar'},el('div',{class:'spacer'}),el('button',{class:'btn small',onclick:()=>editTrip()},'+ Add trip'));
+  const cards=el('div',{class:'grid cols-2'});
+  trips.forEach(t=>{
+    const past=daysBetween(today(),t.end)<0;
+    const meetPeople=(t.meetingIds||[]).map(id=>introById(id)).filter(Boolean);
+    // suggest people in that region not yet on the list
+    const suggest=STATE.introducers.filter(i=>i.region===t.region && !(t.meetingIds||[]).includes(i.id));
+    const c=el('div',{class:'card'},
+      el('h3',{}, (past?'✅ ':'✈ ')+t.destination, el('span',{class:'sub'},' · '+niceDate(t.start)+' – '+niceDate(t.end)+(past?'':' · '+relDays(t.start)))),
+      el('div',{class:'d',style:'color:var(--muted);font-size:13px;margin-bottom:8px'},t.purpose),
+      el('div',{style:'font-size:12.5px;margin-bottom:4px;color:var(--muted)'},'Meetings planned'),
+    );
+    if(meetPeople.length){const pr=el('div',{class:'pill-row'});meetPeople.forEach(p=>pr.append(el('span',{class:'tag a'},p.name+' · '+p.org)));c.append(pr);}
+    else c.append(el('div',{class:'empty',style:'padding:6px 0'},'No meetings yet.'));
+    if(suggest.length){
+      c.append(el('div',{style:'font-size:12.5px;margin:10px 0 4px;color:var(--muted)'},'Also in '+t.region+' — consider adding'));
+      const pr=el('div',{class:'pill-row'});
+      suggest.slice(0,6).forEach(p=>pr.append(el('span',{class:'tag',style:'cursor:pointer',onclick:()=>{t.meetingIds=[...(t.meetingIds||[]),p.id];queueSave();VIEWS.travel();}},'+ '+p.name)));
+      c.append(pr);
+    }
+    if(t.notes)c.append(el('div',{class:'sub',style:'margin-top:10px'},t.notes));
+    c.append(el('div',{class:'act',style:'margin-top:12px;display:flex;gap:6px'},el('button',{class:'mini',onclick:()=>editTrip(t)},'Edit'),el('button',{class:'mini',onclick:()=>{if(confirm('Delete trip?')){STATE.travel=STATE.travel.filter(x=>x.id!==t.id);queueSave();VIEWS.travel();}}},'Delete')));
+    cards.append(c);
+  });
+  render([bar, trips.length?cards:el('div',{class:'card'},el('div',{class:'empty'},'No trips planned. Add your next China/HK or Switzerland trip.'))]);
+};
+
+/* ---------- PIPELINE ---------- */
+VIEWS.pipeline=()=>{
+  const stages=['New','Call','Proposal','Won','Lost'];
+  const bar=el('div',{class:'toolbar'},el('div',{class:'spacer'}),el('button',{class:'btn small',onclick:()=>editProspect()},'+ Add prospect'));
+  const kcards=el('div',{class:'grid cols-4'},
+    kpi(STATE.prospects.filter(p=>['New','Call','Proposal'].includes(p.stage)).length,'Live prospects',fmtMoney(pipelineValue())+' open'),
+    kpi(fmtMoney(wonRevenue()),'Won revenue','booked to you'),
+    kpi(conversionRate()+'%','Win rate','of decided'),
+    kpi(staleProposals().length,'Cold proposals','7+ days no update')
+  );
+  const table=el('table',{},el('thead',{},el('tr',{},el('th',{},'Prospect'),el('th',{},'Source'),el('th',{},'Service'),el('th',{},'Fee'),el('th',{},'Stage'),el('th',{},'Updated'),el('th',{},''))));
+  const tb=el('tbody');
+  STATE.prospects.slice().sort((a,b)=>stages.indexOf(a.stage)-stages.indexOf(b.stage) || parse(b.dateIn)-parse(a.dateIn)).forEach(p=>{
+    const src=introById(p.sourceId);
+    const cold=p.stage==='Proposal'&&daysBetween(p.lastUpdate,today())>=7;
+    tb.append(el('tr',{},
+      el('td',{},el('div',{style:'font-weight:600'},p.name),el('div',{class:'sub'},p.region)),
+      el('td',{},src?src.org:'—',el('div',{class:'sub'},src?src.name:'')),
+      el('td',{},el('span',{class:'sub'},p.service)),
+      el('td',{},fmtMoney(p.feeProposed)),
+      el('td',{},el('span',{class:'stagepill stage-'+p.stage},p.stage), cold?el('div',{class:'sub',style:'color:var(--bad)'},'cold '+daysBetween(p.lastUpdate,today())+'d'):null),
+      el('td',{},el('span',{class:'sub'},niceDate(p.lastUpdate))),
+      el('td',{},el('button',{class:'mini',onclick:()=>editProspect(p)},'Edit'))
+    ));
+  });
+  table.append(tb);
+  render([kcards,bar,el('div',{class:'card'},el('h3',{},'Pipeline'),table)]);
+};
+
+/* ---------- REVENUE ---------- */
+VIEWS.revenue=()=>{
+  // by introducer org
+  const byOrg={};
+  STATE.prospects.forEach(p=>{
+    const src=introById(p.sourceId); const key=src?src.org:'Unattributed';
+    byOrg[key]=byOrg[key]||{own:0,cross:0,count:0};
+    byOrg[key].own+=(+p.revenue||0); byOrg[key].cross+=(+p.crossTeam||0); byOrg[key].count++;
+  });
+  const rows=Object.entries(byOrg).map(([k,v])=>({org:k,...v,total:v.own+v.cross})).sort((a,b)=>b.total-a.total);
+  const max=Math.max(1,...rows.map(r=>r.total));
+  const bars=el('div',{class:'card'},el('h3',{},'Revenue by introducer ',el('span',{class:'sub'},'· own + cross-team')));
+  rows.forEach(r=>{
+    bars.append(el('div',{class:'barrow'},el('div',{class:'lbl'},r.org),el('div',{class:'bar'},el('i',{style:'width:'+(100*r.total/max)+'%'})),el('div',{class:'val'},fmtMoney(r.total))));
+  });
+  if(!rows.length)bars.append(el('div',{class:'empty'},'No revenue recorded yet.'));
+  // by region
+  const byRegion={};
+  STATE.prospects.forEach(p=>{byRegion[p.region]=(byRegion[p.region]||0)+(+p.revenue||0)+(+p.crossTeam||0);});
+  const rrows=Object.entries(byRegion).sort((a,b)=>b[1]-a[1]);
+  const rmax=Math.max(1,...rrows.map(r=>r[1]));
+  const rbars=el('div',{class:'card'},el('h3',{},'Revenue by region'));
+  rrows.forEach(([k,v])=>rbars.append(el('div',{class:'barrow'},el('div',{class:'lbl'},k),el('div',{class:'bar'},el('i',{style:'width:'+(100*v/rmax)+'%'})),el('div',{class:'val'},fmtMoney(v)))));
+  render([
+    el('div',{class:'grid cols-3'},
+      kpi(fmtMoney(wonRevenue()),'Own revenue (won)','this book'),
+      kpi(fmtMoney(crossRevenue()),'Cross-team revenue','generated for others'),
+      kpi(fmtMoney(wonRevenue()+crossRevenue()),'Total value created','the full story to management')
+    ),
+    el('div',{class:'grid cols-2',style:'align-items:start'},bars,rbars),
+    el('div',{class:'card insight'},el('div',{class:'h'},'✦ Why the cross-team number matters'),el('p',{},'When you present this channel to partners, include the revenue you generate for OTHER teams. It is the difference between “a small tax book” and “a firm-wide origination engine”, and it is the strongest argument for continued investment — and for your promotion case.'))
+  ]);
+};
+
+/* ---------- KNOWLEDGE ---------- */
+let kFilter='';
+VIEWS.knowledge=()=>{
+  const cats=['Flyer','Deck','Advice precedent','Appendix','CV','Proposal template','Other'];
+  const bar=el('div',{class:'toolbar'},
+    el('select',{onchange:e=>{kFilter=e.target.value;VIEWS.knowledge();}},el('option',{value:''},'All categories'),...cats.map(c=>el('option',{value:c,...(kFilter===c?{selected:'1'}:{})},c))),
+    el('div',{class:'spacer'}),
+    el('button',{class:'btn small',onclick:()=>editKnowledge()},'+ Add item')
+  );
+  const grid=el('div',{class:'grid cols-3'});
+  STATE.knowledge.filter(k=>!kFilter||k.category===kFilter).forEach(k=>{
+    grid.append(el('div',{class:'card'},
+      el('div',{style:'display:flex;gap:8px;align-items:center;margin-bottom:6px'},el('span',{class:'tag info'},k.category),k.signedOff&&k.signedOff!=='—'?el('span',{class:'tag good'},'✓ '+k.signedOff):null),
+      el('div',{style:'font-weight:700;font-size:14px;margin-bottom:4px'},k.title),
+      el('div',{class:'sub'},k.topic||''),
+      k.notes?el('div',{class:'sub',style:'margin-top:6px'},k.notes):null,
+      el('div',{class:'act',style:'margin-top:10px;display:flex;gap:6px'},
+        k.link?el('a',{class:'mini',href:k.link,target:'_blank'},'Open ↗'):el('span',{class:'sub'},'no link'),
+        el('button',{class:'mini',onclick:()=>editKnowledge(k)},'Edit')
+      )
+    ));
+  });
+  render([
+    el('p',{class:'pagesub'},'A personal INDEX of firm knowledge (decks, flyers, advice precedents, appendices, CVs). Store links to the real documents in your firm systems — do not paste confidential content here.'),
+    bar, STATE.knowledge.length?grid:el('div',{class:'card'},el('div',{class:'empty'},'No items yet.'))
+  ]);
+};
+
+/* ---------- DEVELOPMENTS ---------- */
+VIEWS.devs=()=>{
+  const wrap=el('div',{});
+  wrap.append(el('p',{class:'pagesub'},'Ready-to-use conversation hooks for intermediaries. Pair each with an offer (health-check, briefing, webinar).'));
+  DEVS.forEach(d=>wrap.append(el('div',{class:'card insight devcard'},el('div',{class:'h'},'◈ '+d.tag),el('div',{style:'font-weight:700;font-size:15px;margin-bottom:4px'},d.t),el('p',{},d.body))));
+  render(wrap);
+};
+
+/* ---------- SETTINGS ---------- */
+VIEWS.settings=()=>{
+  const s=STATE.settings;
+  const box=el('div',{class:'card'},el('h3',{},'Profile & cadence defaults'),
+    field2('Your name',el('input',{value:s.userName,onchange:e=>{s.userName=e.target.value;$('#whoami').textContent=e.target.value+' · Private Capital';queueSave();}})),
+    el('div',{class:'formgrid'},
+      field2('Tier A cadence (days)',el('input',{type:'number',value:s.cadenceA,onchange:e=>{s.cadenceA=+e.target.value;queueSave();}})),
+      field2('Tier B cadence (days)',el('input',{type:'number',value:s.cadenceB,onchange:e=>{s.cadenceB=+e.target.value;queueSave();}})),
+      field2('Tier C cadence (days)',el('input',{type:'number',value:s.cadenceC,onchange:e=>{s.cadenceC=+e.target.value;queueSave();}}))
+    )
+  );
+  const data=el('div',{class:'card'},el('h3',{},'Data & backup'),
+    el('p',{class:'sub',style:'margin:0 0 12px'},'Your data lives encrypted in THIS browser only. Export a vault file and keep it in iCloud so it syncs to your office machine and other devices — then Import it there.'),
+    el('div',{class:'act',style:'display:flex;gap:8px;flex-wrap:wrap'},
+      el('button',{class:'btn small',onclick:exportVault},'⬇ Export vault (backup)'),
+      el('button',{class:'btn small ghost',onclick:()=>$('#importFile').click()},'⬆ Import vault'),
+      el('button',{class:'btn small ghost',onclick:changePasscode},'Change passcode'),
+      el('input',{type:'file',id:'importFile',class:'hidden',accept:'.json,application/json',onchange:importVault})
+    ),
+    el('div',{class:'hint'},'Vault files are AES-256 encrypted with your passcode. Anyone who gets the file still needs your passcode to read it.')
+  );
+  const nSample=STATE.introducers.filter(i=>i._sample).length;
+  const contacts=el('div',{class:'card'},el('h3',{},'Contacts'),
+    el('p',{class:'sub',style:'margin:0 0 12px'},'Import your intermediary list — a plain .json file kept on your device / iCloud (never uploaded to GitHub). New contacts are added; existing ones (matched by email) are skipped, so you can safely re-import an updated list.'),
+    el('div',{class:'act',style:'display:flex;gap:8px;flex-wrap:wrap'},
+      el('button',{class:'btn small',onclick:()=>$('#contactsFile').click()},'⬆ Import my contacts (.json)'),
+      el('button',{class:'btn small ghost',onclick:removeSamples},'🧹 Remove sample data'+(nSample?' ('+nSample+')':'')),
+      el('input',{type:'file',id:'contactsFile',class:'hidden',accept:'.json,application/json',onchange:importContacts})
+    ),
+    el('div',{class:'hint'},'“Sample data” is the demo introducers, prospects and events shipped with the app. Remove them once your real list is imported.')
+  );
+  const danger=el('div',{class:'card'},el('h3',{},'Reset'),
+    el('p',{class:'sub',style:'margin:0 0 12px'},'Wipe all data from this browser (your exported vault files are unaffected).'),
+    el('button',{class:'btn small danger',onclick:()=>{if(confirm('Erase all local data from this browser? Make sure you have an export.')){localStorage.removeItem(LS_KEY);location.reload();}}},'Erase local data')
+  );
+  render([box,contacts,data,danger]);
+};
+function field2(label,node){return el('div',{class:'field'},el('label',{},label),node);}
+
+/* ============================================================
+   8. Editors (modals)
+   ============================================================ */
+function openModal(title,bodyNodes,onSave,saveLabel='Save'){
+  $('#modalTitle').textContent=title;
+  const b=$('#modalBody');b.innerHTML='';(Array.isArray(bodyNodes)?bodyNodes:[bodyNodes]).forEach(n=>b.append(n));
+  const f=$('#modalFoot');f.innerHTML='';
+  f.append(el('button',{class:'btn ghost',style:'width:auto',onclick:closeModal},'Cancel'),
+           el('button',{class:'btn',style:'width:auto',onclick:()=>{onSave();closeModal();}},saveLabel));
+  $('#modal').classList.remove('hidden');
+}
+function closeModal(){$('#modal').classList.add('hidden');}
+$('#modalX').onclick=closeModal;
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+function inp(label,val,opts={}){const i=el('input',Object.assign({value:val==null?'':val},opts));return {node:el('div',{class:'field'+(opts.full?' full':''),style:opts.full?'grid-column:1/-1':''},el('label',{},label),i),get:()=>i.value};}
+function sel(label,val,options,opts={}){const s=el('select',{});options.forEach(o=>s.append(el('option',{value:o,...(o===val?{selected:'1'}:{})},o)));return{node:el('div',{class:'field',style:opts.full?'grid-column:1/-1':''},el('label',{},label),s),get:()=>s.value};}
+function area(label,val){const t=el('textarea',{},);t.value=val||'';return{node:el('div',{class:'field',style:'grid-column:1/-1'},el('label',{},label),t),get:()=>t.value};}
+
+function editIntroducer(i){
+  const isNew=!i; i=i||{tier:'B',type:'Bank',region:'Hong Kong',owner:'You',lastContact:''};
+  const f={
+    name:inp('Contact name',i.name,{}), org:inp('Organisation',i.org,{}),
+    role:inp('Role / title',i.role,{}), region:sel('Region',i.region,REGIONS),
+    type:sel('Type',i.type,INTRO_TYPES), tier:sel('Priority tier',i.tier,['A','B','C']),
+    owner:inp('Relationship owner',i.owner,{}), email:inp('Email (optional)',i.email,{type:'email'}),
+    last:inp('Last contact date',i.lastContact,{type:'date'}),
+    cad:inp('Custom cadence (days, optional)',i.cadenceDays,{type:'number'}),
+    notes:area('Notes',i.notes)
+  };
+  const grid=el('div',{class:'formgrid'},f.name.node,f.org.node,f.role.node,f.region.node,f.type.node,f.tier.node,f.owner.node,f.email.node,f.last.node,f.cad.node,f.notes.node);
+  openModal(isNew?'Add introducer':'Edit introducer',grid,()=>{
+    Object.assign(i,{name:f.name.get(),org:f.org.get(),role:f.role.get(),region:f.region.get(),type:f.type.get(),tier:f.tier.get(),owner:f.owner.get(),email:f.email.get(),lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,notes:f.notes.get()});
+    if(isNew){i.id=uid();i.active=true;STATE.introducers.push(i);}
+    queueSave();updateBadges();VIEWS.introducers();
+  });
+}
+function logInteraction(introId){
+  const i=introById(introId);
+  const f={
+    date:inp('Date',iso(today()),{type:'date'}),
+    channel:sel('Channel',' ',['Meeting','Call','Email','Event','Message']),
+    summary:area('What was discussed',''),
+    next:inp('Next action (optional)','',{full:true}),
+    nextDate:inp('Next action date',addDays(iso(today()),14),{type:'date'}),
+    by:inp('By',STATE.settings.userName||'You',{})
+  };
+  const grid=el('div',{class:'formgrid'},f.date.node,f.channel.node,f.by.node,f.summary.node,f.next.node,f.nextDate.node);
+  openModal('Log catch-in · '+(i?i.name:''),grid,()=>{
+    STATE.interactions.push({id:uid(),introducerId:introId,date:f.date.get(),channel:f.channel.get(),summary:f.summary.get(),nextAction:f.next.get(),nextActionDate:f.next.get()?f.nextDate.get():'',by:f.by.get()});
+    if(i)i.lastContact=f.date.get();
+    STATE.log.push({date:iso(today()),what:'Logged catch-in with '+(i?i.name:'')});
+    queueSave();updateBadges();go(CUR);
+  });
+}
+function viewIntroducer(i){
+  const hist=STATE.interactions.filter(x=>x.introducerId===i.id).sort((a,b)=>parse(b.date)-parse(a.date));
+  const linkedProspects=STATE.prospects.filter(p=>p.sourceId===i.id);
+  const rev=linkedProspects.reduce((s,p)=>s+(+p.revenue||0),0), cross=linkedProspects.reduce((s,p)=>s+(+p.crossTeam||0),0);
+  const body=el('div',{});
+  body.append(el('div',{style:'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px'},
+    el('span',{class:'tag a'},'Tier '+i.tier),el('span',{class:'tag'},i.type),el('span',{class:'tag'},i.region),el('span',{class:'tag'},'owner '+i.owner),
+    el('span',{class:'tag '+(nextDue(i).overdue?'bad':'good')},'catch-in '+(nextDue(i).never?'now':relDays(nextDue(i).date)))
+  ));
+  body.append(el('div',{class:'grid cols-2',style:'margin-bottom:14px'},
+    el('div',{class:'card'},el('div',{class:'kpi'},el('div',{class:'n'},fmtMoney(rev)),el('div',{class:'l'},'Own revenue'))),
+    el('div',{class:'card'},el('div',{class:'kpi'},el('div',{class:'n'},fmtMoney(cross)),el('div',{class:'l'},'Cross-team revenue')))
+  ));
+  body.append(el('h3',{style:'margin:6px 0 8px;font-size:13px'},'Interaction history'));
+  if(!hist.length)body.append(el('div',{class:'empty'},'No interactions logged yet.'));
+  hist.forEach(h=>body.append(el('div',{class:'actionitem'},el('div',{class:'dot info'}),el('div',{class:'body'},el('div',{class:'t'},h.channel+' · '+niceDate(h.date)+' · '+(h.by||'')),el('div',{class:'d'},h.summary),h.nextAction?el('div',{class:'d',style:'color:var(--warn)'},'↳ '+h.nextAction+' ('+niceDate(h.nextActionDate)+')'):null))));
+  $('#modalTitle').textContent=i.name+' · '+i.org;
+  $('#modalBody').innerHTML='';$('#modalBody').append(body);
+  const f=$('#modalFoot');f.innerHTML='';
+  f.append(el('button',{class:'btn ghost',style:'width:auto',onclick:closeModal},'Close'),
+           el('button',{class:'btn',style:'width:auto',onclick:()=>{closeModal();logInteraction(i.id);}},'Log catch-in'));
+  $('#modal').classList.remove('hidden');
+}
+function editEvent(e){
+  const isNew=!e; e=e||{date:iso(today()),type:'Webinar',attendees:0,prospects:0};
+  const f={
+    title:inp('Session title',e.title,{full:true}),
+    date:inp('Date',e.date,{type:'date'}), type:sel('Type',e.type,['Webinar','Seminar','1:1','Conference']),
+    org:inp('Intermediary / host',e.org,{}), topic:inp('Topic',e.topic,{}),
+    speakers:inp('Speakers',e.speakers,{}), attendees:inp('Attendees',e.attendees,{type:'number'}),
+    prospects:inp('Prospects generated',e.prospects,{type:'number'}),
+    followUp:inp('Follow-up action',e.followUp,{full:true})
+  };
+  const grid=el('div',{class:'formgrid'},f.title.node,f.date.node,f.type.node,f.org.node,f.topic.node,f.speakers.node,f.attendees.node,f.prospects.node,f.followUp.node);
+  openModal(isNew?'Add event':'Edit event',grid,()=>{
+    Object.assign(e,{title:f.title.get(),date:f.date.get(),type:f.type.get(),org:f.org.get(),topic:f.topic.get(),speakers:f.speakers.get(),attendees:+f.attendees.get(),prospects:+f.prospects.get(),followUp:f.followUp.get()});
+    if(isNew){e.id=uid();STATE.events.push(e);} queueSave();VIEWS.events();
+  });
+}
+function editProspect(p){
+  const isNew=!p; p=p||{stage:'New',dateIn:iso(today()),lastUpdate:iso(today()),region:'Hong Kong',feeProposed:0,revenue:0,crossTeam:0};
+  const orgs=STATE.introducers.map(i=>i.org+' — '+i.name);
+  const cur=isNew?'':(introById(p.sourceId)?introById(p.sourceId).org+' — '+introById(p.sourceId).name:'');
+  const f={
+    name:inp('Prospect / family name',p.name,{}),
+    source:sel('Source (introducer)',cur,['',...orgs]),
+    service:inp('Service',p.service,{full:true}),
+    region:sel('Region',p.region,REGIONS),
+    fee:inp('Fee proposed (£)',p.feeProposed,{type:'number'}),
+    stage:sel('Stage',p.stage,['New','Call','Proposal','Won','Lost']),
+    revenue:inp('Revenue won (£)',p.revenue,{type:'number'}),
+    cross:inp('Cross-team revenue (£)',p.crossTeam,{type:'number'})
+  };
+  const grid=el('div',{class:'formgrid'},f.name.node,f.source.node,f.service.node,f.region.node,f.fee.node,f.stage.node,f.revenue.node,f.cross.node);
+  openModal(isNew?'Add prospect':'Edit prospect',grid,()=>{
+    const srcVal=f.source.get(); const src=STATE.introducers.find(i=>(i.org+' — '+i.name)===srcVal);
+    Object.assign(p,{name:f.name.get(),sourceId:src?src.id:null,service:f.service.get(),region:f.region.get(),feeProposed:+f.fee.get(),stage:f.stage.get(),revenue:+f.revenue.get(),crossTeam:+f.cross.get(),lastUpdate:iso(today())});
+    if(isNew){p.id=uid();p.dateIn=iso(today());STATE.prospects.push(p);} queueSave();updateBadges();VIEWS.pipeline();
+  });
+}
+function editTrip(t){
+  const isNew=!t; t=t||{region:'Hong Kong',start:iso(today()),end:addDays(iso(today()),4),meetingIds:[]};
+  const f={
+    destination:inp('Destination',t.destination,{}), region:sel('Region',t.region,REGIONS),
+    start:inp('Start',t.start,{type:'date'}), end:inp('End',t.end,{type:'date'}),
+    purpose:inp('Purpose',t.purpose,{full:true}), notes:area('Notes',t.notes)
+  };
+  const grid=el('div',{class:'formgrid'},f.destination.node,f.region.node,f.start.node,f.end.node,f.purpose.node,f.notes.node);
+  openModal(isNew?'Add trip':'Edit trip',grid,()=>{
+    Object.assign(t,{destination:f.destination.get(),region:f.region.get(),start:f.start.get(),end:f.end.get(),purpose:f.purpose.get(),notes:f.notes.get()});
+    if(isNew){t.id=uid();t.meetingIds=[];STATE.travel.push(t);} queueSave();VIEWS.travel();
+  });
+}
+function editKnowledge(k){
+  const isNew=!k; k=k||{category:'Deck'};
+  const f={
+    title:inp('Title',k.title,{full:true}),
+    category:sel('Category',k.category,['Flyer','Deck','Advice precedent','Appendix','CV','Proposal template','Other']),
+    topic:inp('Topic',k.topic,{}), signedOff:inp('Signed off by',k.signedOff,{}),
+    link:inp('Link (SharePoint/OneDrive URL)',k.link,{full:true}),
+    notes:area('Notes',k.notes)
+  };
+  const grid=el('div',{class:'formgrid'},f.title.node,f.category.node,f.topic.node,f.signedOff.node,f.link.node,f.notes.node);
+  openModal(isNew?'Add library item':'Edit item',grid,()=>{
+    Object.assign(k,{title:f.title.get(),category:f.category.get(),topic:f.topic.get(),signedOff:f.signedOff.get(),link:f.link.get(),notes:f.notes.get()});
+    if(isNew){k.id=uid();STATE.knowledge.push(k);} queueSave();VIEWS.knowledge();
+  },'Save');
+  if(isNew){ // allow delete on existing only handled elsewhere
+  }
+}
+
+/* ============================================================
+   9. Vault export/import
+   ============================================================ */
+async function importContacts(e){
+  const file=e.target.files[0]; if(!file){return;}
+  try{
+    const arr=JSON.parse(await file.text());
+    if(!Array.isArray(arr)) throw new Error('not an array');
+    const existing=new Set(STATE.introducers.map(i=>(i.email||'').toLowerCase()).filter(Boolean));
+    let added=0,skipped=0;
+    arr.forEach(c=>{
+      const em=(c.email||'').toLowerCase();
+      if(em && existing.has(em)){skipped++;return;}
+      if(em) existing.add(em);
+      STATE.introducers.push({id:uid(),active:true,notes:'',
+        name:c.name||'',org:c.org||'',role:c.role||'',region:c.region||'Other',
+        type:c.type||'Other',tier:c.tier||'B',owner:c.owner||'You',
+        email:c.email||'',location:c.location||'',
+        cadenceDays:c.cadenceDays||undefined,lastContact:c.lastContact||null});
+      added++;
+    });
+    queueSave();updateBadges();
+    alert('Imported '+added+' contacts'+(skipped?'  ('+skipped+' duplicate emails skipped)':'')+'.');
+    go('introducers');
+  }catch(err){ alert('Could not read that file. It must be a .json list of contacts (like my-contacts.LOCAL-ONLY.json).'); }
+  e.target.value='';
+}
+function removeSamples(){
+  const n=['introducers','prospects','events','travel','knowledge'].reduce((s,k)=>s+STATE[k].filter(x=>x._sample).length,0);
+  if(!n){alert('No sample data found — you are already running on your own data.');return;}
+  if(!confirm('Remove all '+n+' demo/sample records (sample introducers, prospects, events, travel, library items)? Your imported contacts and any real data you added will stay.'))return;
+  const sampleIntroIds=new Set(STATE.introducers.filter(i=>i._sample).map(i=>i.id));
+  ['introducers','prospects','events','travel','knowledge'].forEach(k=>{STATE[k]=STATE[k].filter(x=>!x._sample);});
+  STATE.interactions=STATE.interactions.filter(x=>!x._sample && !sampleIntroIds.has(x.introducerId));
+  queueSave();updateBadges();VIEWS.settings();
+}
+function exportVault(){
+  const blob=localStorage.getItem(LS_KEY); if(!blob){alert('Nothing to export yet.');return;}
+  const a=el('a',{href:URL.createObjectURL(new Blob([blob],{type:'application/json'})),download:'pc-bd-vault-'+iso(today())+'.json'});
+  document.body.append(a);a.click();a.remove();
+}
+async function importVault(e){
+  const file=e.target.files[0]; if(!file)return;
+  const text=await file.text();
+  try{
+    const blob=JSON.parse(text);
+    const {key}=await deriveKey(PASSCODE,blob.salt);
+    const data=await decryptState(blob,key); // verify current passcode opens it
+    localStorage.setItem(LS_KEY,text); STATE=data; VAULT_SALT=blob.salt; CRYPTO_KEY=key;
+    alert('Vault imported. Data loaded.'); updateBadges(); go('today');
+  }catch(err){ alert('Could not import: this vault was encrypted with a DIFFERENT passcode, or the file is invalid. Unlock the app with that vault’s passcode first (use “Restore from vault file” on the lock screen).'); }
+  e.target.value='';
+}
+async function changePasscode(){
+  const np=prompt('Enter a NEW passcode (min 6 chars):'); if(!np)return; if(np.length<6){alert('Too short.');return;}
+  const np2=prompt('Re-enter the new passcode:'); if(np!==np2){alert('Passcodes do not match.');return;}
+  const {key,salt}=await deriveKey(np); CRYPTO_KEY=key; VAULT_SALT=salt; PASSCODE=np; await save();
+  alert('Passcode changed. Re-export your vault so backups use the new passcode.');
+}
+
+/* ============================================================
+   10. Lock / unlock flow
+   ============================================================ */
+function existingBlob(){ try{return JSON.parse(localStorage.getItem(LS_KEY));}catch{return null;} }
+function initLockUI(){
+  const blob=existingBlob();
+  const returning=!!blob;
+  $('#pc2wrap').classList.toggle('hidden',returning);
+  $('#pcLabel').textContent=returning?'Enter passcode':'Create passcode';
+  $('#lockLead').textContent=returning
+    ? 'Enter your passcode to decrypt your data on this device.'
+    : 'Set a passcode to encrypt your data on this device. Everything is stored locally and encrypted — nothing is uploaded.';
+  $('#lockHint').classList.toggle('hidden',!returning);
+}
+async function doUnlock(){
+  const err=$('#lockErr'); err.textContent='';
+  const p1=$('#pc1').value, blob=existingBlob();
+  if(blob){ // returning
+    try{
+      const {key}=await deriveKey(p1,blob.salt);
+      STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_SALT=blob.salt; PASSCODE=p1;
+      launch();
+    }catch{ err.textContent='Incorrect passcode.'; }
+  }else{ // new
+    const p2=$('#pc2').value;
+    if(p1.length<6){err.textContent='Passcode must be at least 6 characters.';return;}
+    if(p1!==p2){err.textContent='Passcodes do not match.';return;}
+    const {key,salt}=await deriveKey(p1); CRYPTO_KEY=key; VAULT_SALT=salt; PASSCODE=p1;
+    STATE=seed(); await save(); launch();
+  }
+}
+function launch(){
+  $('#lock').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#whoami').textContent=(STATE.settings.userName||'You')+' · Private Capital';
+  $('#todayDate').textContent=today().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  updateBadges(); go('today');
+}
+function lockNow(){ STATE=null;CRYPTO_KEY=null;PASSCODE=null; $('#app').classList.add('hidden'); $('#pc1').value='';$('#pc2').value=''; initLockUI(); $('#lock').classList.remove('hidden'); $('#pc1').focus(); }
+
+/* restore-from-file on lock screen (forgotten passcode path uses the file's own passcode) */
+async function restoreFromFile(e){
+  const file=e.target.files[0]; if(!file)return;
+  const text=await file.text(); const err=$('#lockErr');
+  try{
+    const blob=JSON.parse(text);
+    const p=prompt('Enter the passcode that this vault file was saved with:'); if(!p)return;
+    const {key}=await deriveKey(p,blob.salt);
+    STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_SALT=blob.salt; PASSCODE=p;
+    localStorage.setItem(LS_KEY,text); launch();
+  }catch{ err.textContent='Could not restore — wrong passcode or invalid file.'; }
+  e.target.value='';
+}
+
+/* ============================================================
+   11. Wire up
+   ============================================================ */
+$('#unlockBtn').onclick=doUnlock;
+$('#pc1').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
+$('#pc2').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
+$('#lockNow').onclick=lockNow;
+$('#restoreLink').onclick=()=>$('#restoreFile').click();
+$('#restoreFile').addEventListener('change',restoreFromFile);
+$$('#nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.view)));
+initLockUI();
+$('#pc1').focus();
+</script>
