@@ -203,6 +203,7 @@
       Tip: choose something strong and memorable — there is no reset. If you forget it, use “Restore from vault file” with a backup.
       <br><br>
       <a id="restoreLink">Restore from an exported vault file →</a>
+      <br><a id="cloudRestoreLink">Restore from cloud sync (new device) →</a>
       <input id="restoreFile" type="file" accept="application/json,.json" class="hidden" />
     </div>
   </div>
@@ -313,10 +314,12 @@ async function decryptState(pkg,key){
    ============================================================ */
 let STATE=null, VAULT_SALT=null;
 async function save(){
+  STATE.updatedAt=(STATE.updatedAt||0)+1;
   const pkg=await encryptState(STATE);
-  const blob={v:1,salt:VAULT_SALT,...pkg};
+  const blob={v:1,salt:VAULT_SALT,updatedAt:STATE.updatedAt,...pkg};
   localStorage.setItem(LS_KEY,JSON.stringify(blob));
   flashSaved();
+  if(STATE.settings && STATE.settings.sync && STATE.settings.sync.enabled) queueSyncPush();
 }
 let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,300);}
@@ -374,7 +377,9 @@ function seed(){
   ];
   [...introducers,...interactions,...prospects,...events,...knowledge,...travel].forEach(o=>{o._sample=true;});
   return {
-    settings:{userName:'You',cadenceA:42,cadenceB:60,cadenceC:90,created:t},
+    updatedAt:0,
+    settings:{userName:'You',cadenceA:42,cadenceB:60,cadenceC:90,created:t,
+              sync:{enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'}},
     introducers,interactions,prospects,events,knowledge,travel,
     log:[] // completed action log
   };
@@ -593,14 +598,15 @@ function renderIntroTable(){
   if(!rows.length) tb.append(el('tr',{},el('td',{colspan:'8'},el('div',{class:'empty'},'No introducers match. Add one, or adjust filters.'))));
   rows.forEach(({i,due})=>{
     const overdue=due.overdue;
-    tb.append(el('tr',{},
+    const archived=i.active===false;
+    tb.append(el('tr',{style:archived?'opacity:.5':''},
       el('td',{},el('div',{style:'font-weight:600'},i.name),el('div',{class:'sub'},i.role||'')),
       el('td',{},i.org),
       el('td',{},i.region,el('div',{class:'sub'},i.type)),
-      el('td',{},el('span',{class:'tag'+(i.tier==='A'?' a':'')},i.tier)),
+      el('td',{},el('span',{class:'tag'+(i.tier==='A'?' a':''),style:'cursor:pointer;user-select:none',title:'Click to change priority (A → B → C)',onclick:()=>{i.tier=i.tier==='A'?'B':i.tier==='B'?'C':'A';queueSave();updateBadges();renderIntroTable();}},i.tier)),
       el('td',{},el('span',{class:'sub'},i.owner)),
       el('td',{}, i.lastContact?niceDate(i.lastContact):el('span',{class:'tag bad'},'never')),
-      el('td',{}, el('span',{class:'tag '+(overdue?'bad':'good')}, due.never?'now':relDays(due.date))),
+      el('td',{}, archived?el('span',{class:'tag'},'archived'):el('span',{class:'tag '+(overdue?'bad':'good')}, due.never?'now':relDays(due.date))),
       el('td',{},el('div',{class:'row-actions'},
         el('button',{class:'mini y',onclick:()=>logInteraction(i.id)},'Log'),
         el('button',{class:'mini',onclick:()=>editIntroducer(i)},'Edit'),
@@ -842,21 +848,37 @@ VIEWS.settings=()=>{
     ),
     el('div',{class:'hint'},'“Sample data” is the demo introducers, prospects and events shipped with the app. Remove them once your real list is imported.')
   );
+  if(!s.sync)s.sync={enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'};
+  const sy=s.sync;
+  const tokenInput=el('input',{id:'syncToken',type:'password',placeholder:'ghp_… (token with gist scope)',value:sy.token||''});
+  const sync=el('div',{class:'card'},el('h3',{},'Cloud auto-sync ',el('span',{class:'sub'},'· optional · '+(sy.enabled?'ON':'off'))),
+    el('p',{class:'sub',style:'margin:0 0 12px'},'Keep an encrypted copy of your data in a private GitHub Gist so your devices stay in step automatically. GitHub only ever stores ciphertext — your passcode never leaves your device, so no one at GitHub (or anyone with the Gist) can read it.'),
+    field2('GitHub personal access token (gist scope only)',tokenInput),
+    el('div',{class:'act',style:'display:flex;gap:8px;flex-wrap:wrap'},
+      el('button',{class:'btn small',onclick:enableSync},sy.gistId?'✓ Connected — Sync now':'Enable & create cloud sync'),
+      sy.gistId?el('button',{class:'btn small ghost',onclick:()=>syncPullIfNewer(false)},'Pull latest'):null,
+      sy.enabled?el('button',{class:'btn small ghost',onclick:disableSync},'Disable sync'):null
+    ),
+    sy.gistId?el('div',{class:'hint'},'Vault Gist ID: '+sy.gistId+' — on a NEW device, open the app, click “Restore from cloud sync” on the lock screen, and enter this ID + your token + passcode.'):null,
+    el('div',{class:'hint'},'How to get a token: GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token → tick only “gist” → copy it here. It is stored inside your encrypted vault.'),
+    el('div',{class:'hint',id:'syncStatus',style:'color:var(--good)'},SYNC_STATUS||'')
+  );
   const danger=el('div',{class:'card'},el('h3',{},'Reset'),
     el('p',{class:'sub',style:'margin:0 0 12px'},'Wipe all data from this browser (your exported vault files are unaffected).'),
     el('button',{class:'btn small danger',onclick:()=>{if(confirm('Erase all local data from this browser? Make sure you have an export.')){localStorage.removeItem(LS_KEY);location.reload();}}},'Erase local data')
   );
-  render([box,contacts,data,danger]);
+  render([box,contacts,sync,data,danger]);
 };
 function field2(label,node){return el('div',{class:'field'},el('label',{},label),node);}
 
 /* ============================================================
    8. Editors (modals)
    ============================================================ */
-function openModal(title,bodyNodes,onSave,saveLabel='Save'){
+function openModal(title,bodyNodes,onSave,saveLabel='Save',onDelete){
   $('#modalTitle').textContent=title;
   const b=$('#modalBody');b.innerHTML='';(Array.isArray(bodyNodes)?bodyNodes:[bodyNodes]).forEach(n=>b.append(n));
   const f=$('#modalFoot');f.innerHTML='';
+  if(onDelete) f.append(el('button',{class:'btn danger',style:'width:auto;margin-right:auto',onclick:onDelete},'Delete'));
   f.append(el('button',{class:'btn ghost',style:'width:auto',onclick:closeModal},'Cancel'),
            el('button',{class:'btn',style:'width:auto',onclick:()=>{onSave();closeModal();}},saveLabel));
   $('#modal').classList.remove('hidden');
@@ -877,14 +899,23 @@ function editIntroducer(i){
     owner:inp('Relationship owner',i.owner,{}), email:inp('Email (optional)',i.email,{type:'email'}),
     last:inp('Last contact date',i.lastContact,{type:'date'}),
     cad:inp('Custom cadence (days, optional)',i.cadenceDays,{type:'number'}),
+    status:sel('Status',i.active===false?'Archived':'Active',['Active','Archived']),
     notes:area('Notes',i.notes)
   };
-  const grid=el('div',{class:'formgrid'},f.name.node,f.org.node,f.role.node,f.region.node,f.type.node,f.tier.node,f.owner.node,f.email.node,f.last.node,f.cad.node,f.notes.node);
+  const grid=el('div',{class:'formgrid'},f.name.node,f.org.node,f.role.node,f.region.node,f.type.node,f.tier.node,f.owner.node,f.email.node,f.last.node,f.cad.node,f.status.node,f.notes.node);
   openModal(isNew?'Add introducer':'Edit introducer',grid,()=>{
-    Object.assign(i,{name:f.name.get(),org:f.org.get(),role:f.role.get(),region:f.region.get(),type:f.type.get(),tier:f.tier.get(),owner:f.owner.get(),email:f.email.get(),lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,notes:f.notes.get()});
-    if(isNew){i.id=uid();i.active=true;STATE.introducers.push(i);}
+    Object.assign(i,{name:f.name.get(),org:f.org.get(),role:f.role.get(),region:f.region.get(),type:f.type.get(),tier:f.tier.get(),owner:f.owner.get(),email:f.email.get(),lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,active:f.status.get()==='Active',notes:f.notes.get()});
+    if(isNew){i.id=uid();STATE.introducers.push(i);}
     queueSave();updateBadges();VIEWS.introducers();
-  });
+  },'Save', isNew?undefined:()=>deleteIntroducer(i));
+}
+function deleteIntroducer(i){
+  if(!confirm('Permanently delete '+i.name+' ('+i.org+')?\n\nThis removes their contact record and interaction history. Any linked pipeline items are kept but unlinked.\n\nTip: to keep the history, set Status to “Archived” instead — Cancel this and change the Status field.'))return;
+  STATE.introducers=STATE.introducers.filter(x=>x.id!==i.id);
+  STATE.interactions=STATE.interactions.filter(x=>x.introducerId!==i.id);
+  STATE.prospects.forEach(p=>{ if(p.sourceId===i.id) p.sourceId=null; });
+  STATE.travel.forEach(t=>{ if(t.meetingIds) t.meetingIds=t.meetingIds.filter(id=>id!==i.id); });
+  queueSave();updateBadges();closeModal();VIEWS.introducers();
 }
 function logInteraction(introId){
   const i=introById(introId);
@@ -998,6 +1029,67 @@ function editKnowledge(k){
 /* ============================================================
    9. Vault export/import
    ============================================================ */
+/* ---------- Cloud auto-sync (encrypted vault in a private Gist) ---------- */
+const GH='https://api.github.com';
+let syncTimer=null, SYNC_STATUS='';
+function setSync(msg){ SYNC_STATUS=msg; const n=document.getElementById('syncStatus'); if(n)n.textContent=msg; }
+function queueSyncPush(){ clearTimeout(syncTimer); syncTimer=setTimeout(syncPush,2500); }
+async function ghFetch(path,opts,token){
+  const r=await fetch(GH+path,Object.assign({headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}},opts||{}));
+  if(!r.ok){ let m=r.status; try{const j=await r.json(); if(j.message)m=r.status+' '+j.message;}catch{} throw new Error('GitHub '+m); }
+  return r.json();
+}
+async function syncPush(){
+  const s=STATE.settings&&STATE.settings.sync; if(!s||!s.enabled||!s.token)return;
+  const blob=localStorage.getItem(LS_KEY); if(!blob)return;
+  try{
+    const files={}; files[s.filename||'pc-bd-vault.json']={content:blob};
+    if(s.gistId){ await ghFetch('/gists/'+s.gistId,{method:'PATCH',body:JSON.stringify({files})},s.token); setSync('Synced to cloud ✓'); }
+    else{ const g=await ghFetch('/gists',{method:'POST',body:JSON.stringify({description:'Private Capital BD Cockpit — encrypted vault (do not edit by hand)',public:false,files})},s.token);
+          s.gistId=g.id; setSync('Cloud sync created ✓'); queueSave(); if(CUR==='settings')VIEWS.settings(); }
+  }catch(e){ setSync('Sync failed — '+e.message); }
+}
+async function syncPullIfNewer(silent){
+  const s=STATE.settings&&STATE.settings.sync; if(!s||!s.enabled||!s.token||!s.gistId){ if(!silent)setSync('Sync not set up on this device yet.'); return; }
+  try{
+    const g=await ghFetch('/gists/'+s.gistId,{},s.token);
+    const f=g.files[s.filename||'pc-bd-vault.json']||Object.values(g.files)[0]; if(!f)return;
+    const remote=JSON.parse(f.content);
+    if((remote.updatedAt||0) > (STATE.updatedAt||0)){
+      const {key}=await deriveKey(PASSCODE,remote.salt);
+      const data=await decryptState(remote,key);
+      STATE=data; CRYPTO_KEY=key; VAULT_SALT=remote.salt;
+      localStorage.setItem(LS_KEY,f.content);
+      setSync('Pulled a newer cloud copy ✓'); updateBadges(); go(CUR);
+    } else { setSync('Up to date ✓'); }
+  }catch(e){ setSync('Sync check failed — '+e.message); }
+}
+function enableSync(){
+  const t=(document.getElementById('syncToken')?document.getElementById('syncToken').value:'').trim();
+  if(!t){ alert('Paste a GitHub token with the "gist" scope first (see the sync help).'); return; }
+  if(!STATE.settings.sync)STATE.settings.sync={filename:'pc-bd-vault.json'};
+  STATE.settings.sync.enabled=true; STATE.settings.sync.token=t;
+  setSync('Connecting to GitHub…'); queueSave(); syncPush();
+}
+function disableSync(){
+  if(!confirm('Disable cloud sync on this device? Your local encrypted data stays, and the Gist is not deleted.'))return;
+  STATE.settings.sync.enabled=false; queueSave(); VIEWS.settings();
+}
+async function restoreFromCloud(){
+  const err=$('#lockErr'); err.textContent='';
+  const token=prompt('Cloud restore — paste your GitHub token (gist scope):'); if(!token)return;
+  const gistId=prompt('Paste the Vault Gist ID (from your other device: Settings → Cloud auto-sync):'); if(!gistId)return;
+  const pass=prompt('Enter your passcode:'); if(!pass)return;
+  try{
+    const g=await ghFetch('/gists/'+gistId.trim(),{},token.trim());
+    const f=Object.values(g.files)[0]; const remote=JSON.parse(f.content);
+    const {key}=await deriveKey(pass,remote.salt);
+    STATE=await decryptState(remote,key); CRYPTO_KEY=key; VAULT_SALT=remote.salt; PASSCODE=pass;
+    if(!STATE.settings.sync)STATE.settings.sync={filename:'pc-bd-vault.json'};
+    Object.assign(STATE.settings.sync,{enabled:true,token:token.trim(),gistId:gistId.trim(),filename:f.filename||'pc-bd-vault.json'});
+    localStorage.setItem(LS_KEY,f.content); await save(); launch();
+  }catch(e){ err.textContent='Cloud restore failed — '+e.message+' (check token, Gist ID and passcode).'; }
+}
 async function importContacts(e){
   const file=e.target.files[0]; if(!file){return;}
   try{
@@ -1092,6 +1184,7 @@ function launch(){
   $('#whoami').textContent=(STATE.settings.userName||'You')+' · Private Capital';
   $('#todayDate').textContent=today().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   updateBadges(); go('today');
+  if(STATE.settings && STATE.settings.sync && STATE.settings.sync.enabled) syncPullIfNewer(true);
 }
 function lockNow(){ STATE=null;CRYPTO_KEY=null;PASSCODE=null; $('#app').classList.add('hidden'); $('#pc1').value='';$('#pc2').value=''; initLockUI(); $('#lock').classList.remove('hidden'); $('#pc1').focus(); }
 
@@ -1117,6 +1210,7 @@ $('#pc1').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
 $('#pc2').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
 $('#lockNow').onclick=lockNow;
 $('#restoreLink').onclick=()=>$('#restoreFile').click();
+$('#cloudRestoreLink').onclick=restoreFromCloud;
 $('#restoreFile').addEventListener('change',restoreFromFile);
 $$('#nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.view)));
 initLockUI();

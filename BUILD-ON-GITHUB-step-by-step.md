@@ -126,5 +126,26 @@ This is your *personal* toolbox. If you ever want a shared team version, that's 
 
 ---
 
-### Optional future upgrade (ask me when ready)
-Auto-sync: instead of manual Export/Restore, the app can keep an **encrypted** copy in a private GitHub “Gist” so every device is always up to date — while GitHub still only ever holds encrypted text it cannot read. Happy to add this when you want it.
+---
+
+## Part I — Turn on auto-sync across devices (optional, recommended)
+
+Instead of manually Export/Import, the app can keep an **encrypted** copy in a **private GitHub Gist**, so your office PC, laptop and phone stay in step automatically. GitHub only ever stores ciphertext — your passcode never leaves your device, so no one at GitHub (or anyone who saw the Gist) can read it.
+
+**One-time setup on your main device:**
+1. Create a token: **GitHub → your avatar → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Give it a name, set an expiry, and tick **only the `gist` scope**. Generate and **copy** the token (starts `ghp_…`).
+2. In the app: **Settings → Cloud auto-sync**, paste the token, and click **Enable & create cloud sync**. You'll see “Cloud sync created ✓” and a **Vault Gist ID** — note it down.
+3. From now on, every change auto-syncs. Use **Pull latest** any time to fetch changes made elsewhere.
+
+**On a new/second device:**
+1. Open your bookmarked site → on the lock screen click **“Restore from cloud sync (new device) →”**.
+2. Enter your **token**, the **Vault Gist ID**, and your **passcode**. Your data loads and that device is now synced too.
+
+> The token is stored inside your encrypted vault. Choose a sensible expiry and regenerate if ever needed. This is a personal convenience feature — the manual **Export vault to iCloud** backup (Part G) still works and is a good belt-and-braces habit.
+
+---
+
+## Part J — Day-to-day: prioritise and prune
+
+- **Handpick your Tier-A relationships:** in **Introducers**, just **click any tier badge** to cycle A → B → C. Tier-A people surface first in **Today** and **Catch-in Cadence**, so your priority contacts are always front-of-queue.
+- **Remove or park relationships that are no longer valid:** open a contact → **Edit**. Set **Status → Archived** to keep the history but drop them from your cadence and daily list, or click **Delete** to remove them permanently (linked pipeline items are kept but unlinked).
