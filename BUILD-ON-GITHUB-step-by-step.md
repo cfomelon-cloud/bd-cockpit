@@ -140,6 +140,9 @@ Instead of manually Export/Import, the app can keep an **encrypted** copy in a *
 **On a new/second device:**
 1. Open your bookmarked site → on the lock screen click **“Restore from cloud sync (new device) →”**.
 2. Enter your **token**, the **Vault Gist ID**, and your **passcode**. Your data loads and that device is now synced too.
+3. **Faster:** on your main device, **Settings → Cloud auto-sync** shows a **QR code**. Point the new phone's camera at it — it opens the app with the Vault Gist ID already filled in, so you only type the token + passcode. (The QR contains *only* the Gist ID — never your token or passcode.)
+
+**Sync status at a glance:** the top bar shows a pill — **Synced ✓** (up to date), **Pull available** (a newer copy is in the cloud — tap to pull), **Syncing…**, or **Sync error**. Tap it any time to sync now.
 
 > The token is stored inside your encrypted vault. Choose a sensible expiry and regenerate if ever needed. This is a personal convenience feature — the manual **Export vault to iCloud** backup (Part G) still works and is a good belt-and-braces habit.
 
@@ -148,4 +151,5 @@ Instead of manually Export/Import, the app can keep an **encrypted** copy in a *
 ## Part J — Day-to-day: prioritise and prune
 
 - **Handpick your Tier-A relationships:** in **Introducers**, just **click any tier badge** to cycle A → B → C. Tier-A people surface first in **Today** and **Catch-in Cadence**, so your priority contacts are always front-of-queue.
+- **Focus the list:** use the **★ Tier A only** button to show just your priority relationships, and tick **Hide archived** to drop parked contacts from view.
 - **Remove or park relationships that are no longer valid:** open a contact → **Edit**. Set **Status → Archived** to keep the history but drop them from your cadence and daily list, or click **Delete** to remove them permanently (linked pipeline items are kept but unlinked).
