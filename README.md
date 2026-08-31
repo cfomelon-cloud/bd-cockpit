@@ -13,6 +13,7 @@ A single-file, encrypted, browser-based command centre for your personal busines
 - **Today** — a prioritised daily action list so you focus on BD and don't drift into delivery work.
 - **AI Insights** — an on-device briefing (overdue catch-ins, cold proposals, upcoming events/travel) — no cloud, no API key.
 - **Introducers** — a CRM for private banks & trustees across HK, Singapore, UK, Channel Islands, Switzerland; tier, owner, cadence.
+- **Clients** — your own client database (individuals, trusts, companies, FICs) with the same catch-in discipline, so existing clients stay warm for repeat work and referrals.
 - **Catch-in Cadence** — auto-flags who's overdue a check-in (default every 6–13 weeks by tier), with a personal "yours" view.
 - **Events & Webinars** — log past/future sessions, who you spoke to, attendees, and prospects generated.
 - **Travel Planner** — plan China/HK & Switzerland trips; auto-suggests who to meet in that region.
