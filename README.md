@@ -10,7 +10,8 @@ A single-file, encrypted, browser-based command centre for your personal busines
 | `README.md` | This file. |
 
 ## What it does
-- **Today** — a prioritised daily action list so you focus on BD and don't drift into delivery work.
+- **Today** — a prioritised daily action list plus your **upcoming meetings (next 7 days)**, so you focus on BD and don't drift into delivery work.
+- **Meetings & Calendar** — schedule in-person/virtual/phone meetings with introducers or clients; once the time passes, confirm whether it happened, and a "held" meeting is auto-logged to that contact's history (with editable notes).
 - **AI Insights** — an on-device briefing (overdue catch-ins, cold proposals, upcoming events/travel) — no cloud, no API key.
 - **Introducers** — a CRM for private banks & trustees across HK, Singapore, UK, Channel Islands, Switzerland; tier, owner, cadence.
 - **Clients** — your own client database (individuals, trusts, companies, FICs) with the same catch-in discipline, so existing clients stay warm for repeat work and referrals.

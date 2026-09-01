@@ -237,6 +237,7 @@
     <nav id="nav">
       <div class="navlabel">Focus</div>
       <a data-view="today"><span class="ic">◎</span> Today <span class="navbadge hidden" id="badgeToday">0</span></a>
+      <a data-view="meetings"><span class="ic">🗓</span> Meetings <span class="navbadge hidden" id="badgeMeet">0</span></a>
       <a data-view="insights"><span class="ic">✦</span> AI Insights</a>
       <div class="navlabel">Relationships</div>
       <a data-view="introducers"><span class="ic">◱</span> Introducers</a>
@@ -2706,12 +2707,17 @@ function seed(){
   const clientInteractions=[
     {id:uid(),clientId:cById('Zhang').id,date:addDays(t,-58),channel:'Meeting',summary:'Annual review; discussed FIG year-4 planning and a possible property purchase.',nextAction:'Send property SDLT note',nextActionDate:addDays(t,-3),by:'You'},
   ];
-  [...introducers,...interactions,...prospects,...events,...knowledge,...travel,...clients,...clientInteractions].forEach(o=>{o._sample=true;});
+  const meetings=[
+    {id:uid(),withType:'client',    withId:cById('Zhang').id,     title:'Annual review',           date:addDays(t,3), time:'10:30',mode:'In person',location:'EY London office',                       agenda:'FIG year-4 planning; property purchase',status:'scheduled'},
+    {id:uid(),withType:'introducer',withId:byOrg('HSBC').id,      title:'Relationship catch-up',   date:addDays(t,5), time:'15:00',mode:'Virtual',  location:'https://teams.microsoft.com/l/meetup-join', agenda:'Pipeline update; FIG seminar planning', status:'scheduled'},
+    {id:uid(),withType:'introducer',withId:byOrg('Vistra').id,    title:'Trust structuring chat',  date:addDays(t,-2),time:'11:00',mode:'Virtual',  location:'https://teams.microsoft.com/l/meetup-join', agenda:'Offshore trust rule changes',           status:'scheduled'},
+  ];
+  [...introducers,...interactions,...prospects,...events,...knowledge,...travel,...clients,...clientInteractions,...meetings].forEach(o=>{o._sample=true;});
   return {
     updatedAt:0,
     settings:{userName:'You',cadenceA:42,cadenceB:60,cadenceC:90,created:t,
               sync:{enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'}},
-    introducers,interactions,prospects,events,knowledge,travel,clients,clientInteractions,
+    introducers,interactions,prospects,events,knowledge,travel,clients,clientInteractions,meetings,
     log:[] // completed action log
   };
 }
@@ -2756,6 +2762,10 @@ function buildInsights(){
   if(fu.length){ out.push({icon:'✦',h:`${fu.length} follow-up${fu.length>1?'s':''} you committed to are due`,p:`These are promises already made — clearing them protects your credibility. Next: “${fu[0].nextAction}” for ${introById(fu[0].introducerId)?.org||'—'}.`}); }
   const sp=staleProposals();
   if(sp.length){ out.push({icon:'▦',h:`${sp.length} proposal${sp.length>1?'s are':' is'} going cold`,p:`Proposals sent 7+ days ago with no movement (${sp.map(p=>p.name).join(', ')}). This is exactly where the team loses conversions. A light-touch nudge now materially lifts your win rate.`}); }
+  const mc=meetingsToConfirm();
+  if(mc.length){ out.push({icon:'🗓',h:`${mc.length} past meeting${mc.length>1?'s need':' needs'} confirming`,p:`Confirm whether ${mc.slice(0,3).map(m=>meetingWithName(m)).join(', ')} went ahead — a held meeting is logged straight into that contact's history.`}); }
+  const um=upcomingMeetings(7);
+  if(um.length){ out.push({icon:'🗓',h:`${um.length} meeting${um.length>1?'s':''} in the next 7 days`,p:`Next: ${meetingWithName(um[0])} on ${niceMeetingWhen(um[0])}. Prepare an agenda and confirm the ${um[0].mode==='Virtual'?'video link':'venue'}.`}); }
   const oc=overdueClients();
   if(oc.length){ out.push({icon:'♥',h:`${oc.length} client${oc.length>1?'s are':' is'} due a catch-in`,p:`Existing clients drive repeat work and warm referrals — often your highest-return conversations. Reach out to ${oc.slice(0,3).map(x=>x.c.name).join(', ')}.`}); }
   const ue=upcomingEvents(21);
@@ -2799,6 +2809,11 @@ function todayActions(){
       t:`Client follow-up: ${f.nextAction}`,
       d:`${clientById(f.clientId)?.name||''} · promised for ${niceDate(f.nextActionDate)}`});
   });
+  meetingsToConfirm().forEach(m=>{
+    items.push({sev:'info',type:'meetingconfirm',refId:m.id,
+      t:`Confirm meeting: ${meetingWithName(m)}`,
+      d:`${niceMeetingWhen(m)} · ${m.mode||''} · did it go ahead?`});
+  });
   const order={bad:0,warn:1,info:2,good:3};
   return items.sort((a,b)=>order[a.sev]-order[b.sev]);
 }
@@ -2806,12 +2821,13 @@ function todayActions(){
 /* ============================================================
    7. Router + views
    ============================================================ */
-const TITLES={today:'Today',insights:'AI Insights',introducers:'Introducers',clients:'Clients',cadence:'Catch-in Cadence',events:'Events & Webinars',travel:'Travel Planner',pipeline:'Pipeline',revenue:'Revenue',knowledge:'Knowledge Library',devs:'Tax Developments',settings:'Settings'};
+const TITLES={today:'Today',meetings:'Meetings & Calendar',insights:'AI Insights',introducers:'Introducers',clients:'Clients',cadence:'Catch-in Cadence',events:'Events & Webinars',travel:'Travel Planner',pipeline:'Pipeline',revenue:'Revenue',knowledge:'Knowledge Library',devs:'Tax Developments',settings:'Settings'};
 let CUR='today';
 function ensureShape(){
   if(!STATE)return;
   STATE.clients=STATE.clients||[];
   STATE.clientInteractions=STATE.clientInteractions||[];
+  STATE.meetings=STATE.meetings||[];
   STATE.log=STATE.log||[];
   if(!STATE.settings.sync)STATE.settings.sync={enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'};
 }
@@ -2833,6 +2849,8 @@ function updateBadges(){
   const bC=$('#badgeCad'); bC.textContent=cap(c); bC.classList.toggle('hidden',c===0);
   const cl=overdueClients().length;
   const bCl=$('#badgeClients'); if(bCl){ bCl.textContent=cap(cl); bCl.classList.toggle('hidden',cl===0); }
+  const mm=meetingsToConfirm().length;
+  const bM=$('#badgeMeet'); if(bM){ bM.textContent=cap(mm); bM.classList.toggle('hidden',mm===0); }
 }
 
 const VIEWS={};
@@ -2871,20 +2889,24 @@ VIEWS.today=()=>{
     el('div',{class:'h'},'◈ Talking point of the day · '+dev.tag),
     el('div',{class:'t',style:'font-weight:700;font-size:14px;margin-bottom:4px'},dev.t),
     el('p',{},dev.body));
-  render([kpis, el('div',{class:'grid cols-2',style:'align-items:start'}, list, devCard)]);
+  render([kpis, todayMeetingsCard(), el('div',{class:'grid cols-2',style:'align-items:start'}, list, devCard)]);
 };
 function kpi(n,l,foot){ return el('div',{class:'card kpi'}, el('div',{class:'n'},String(n)), el('div',{class:'l'},l), foot?el('div',{class:'foot'},foot):null); }
 function actionRow(a){
+  let acts;
+  if(a.type==='meetingconfirm'){
+    acts=el('div',{class:'act'},
+      el('button',{class:'mini y',onclick:()=>{const m=(STATE.meetings||[]).find(x=>x.id===a.refId); if(m)confirmMeetingHeld(m);}},'✓ Held'),
+      el('button',{class:'mini',onclick:()=>{const m=(STATE.meetings||[]).find(x=>x.id===a.refId); if(m)markMeetingMissed(m);}},'✗ Didn’t happen'),
+      el('button',{class:'mini',onclick:()=>go('meetings')},'Open'));
+  } else {
+    acts=el('div',{class:'act'},
+      el('button',{class:'mini y',onclick:()=>completeAction(a)},'Mark done'),
+      el('button',{class:'mini',onclick:()=>jumpTo(a)},'Open'));
+  }
   return el('div',{class:'actionitem'},
     el('div',{class:'dot '+a.sev}),
-    el('div',{class:'body'},
-      el('div',{class:'t'},a.t),
-      el('div',{class:'d'},a.d),
-      el('div',{class:'act'},
-        el('button',{class:'mini y',onclick:()=>completeAction(a)},'Mark done'),
-        el('button',{class:'mini',onclick:()=>jumpTo(a)},'Open')
-      )
-    )
+    el('div',{class:'body'}, el('div',{class:'t'},a.t), el('div',{class:'d'},a.d), acts)
   );
 }
 function completeAction(a){
@@ -3457,6 +3479,136 @@ function viewClient(c){
               el('button',{class:'btn',style:'width:auto',onclick:()=>{closeModal();logClientInteraction(c.id);}},'Log interaction'));
   $('#modal').classList.remove('hidden');
 }
+
+/* ============================================================
+   MEETINGS & CALENDAR — schedule, confirm-held, auto-log
+   ============================================================ */
+function mDateTime(m){ const d=parse(m.date)||today(); const p=(m.time||'09:00').split(':'); d.setHours(+p[0]||0,+p[1]||0,0,0); return d; }
+function meetingPassed(m){ return mDateTime(m) < new Date(); }
+function meetingsToConfirm(){ return (STATE.meetings||[]).filter(m=>m.status==='scheduled' && meetingPassed(m)).sort((a,b)=>mDateTime(a)-mDateTime(b)); }
+function upcomingMeetings(days){ const end=new Date(); end.setDate(end.getDate()+(days||7)); end.setHours(23,59,59,999);
+  return (STATE.meetings||[]).filter(m=>m.status==='scheduled' && !meetingPassed(m) && mDateTime(m)<=end).sort((a,b)=>mDateTime(a)-mDateTime(b)); }
+function allFutureMeetings(){ return (STATE.meetings||[]).filter(m=>m.status==='scheduled' && !meetingPassed(m)).sort((a,b)=>mDateTime(a)-mDateTime(b)); }
+function meetingWithName(m){ if(m.withType==='introducer'){ const i=introById(m.withId); return i?(i.org+' — '+i.name):'(deleted introducer)'; } const c=clientById(m.withId); return c?c.name:'(deleted client)'; }
+function niceMeetingWhen(m){ const d=parse(m.date); const dn=d?d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}):m.date; return dn+' · '+(m.time||'')+' · '+relDays(m.date); }
+function attendeeOptions(){
+  const arr=[];
+  (STATE.introducers||[]).filter(i=>i.active!==false).forEach(i=>arr.push({key:'introducer:'+i.id,label:i.org+' — '+i.name+'  (introducer)'}));
+  (STATE.clients||[]).filter(c=>c.active!==false).forEach(c=>arr.push({key:'client:'+c.id,label:c.name+'  (client)'}));
+  arr.sort((a,b)=>a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  return arr;
+}
+VIEWS.meetings=()=>{
+  const confirmList=meetingsToConfirm();
+  const up=allFutureMeetings();
+  const past=(STATE.meetings||[]).filter(m=>m.status==='held'||m.status==='missed'||m.status==='cancelled').sort((a,b)=>mDateTime(b)-mDateTime(a));
+  const bar=el('div',{class:'toolbar'},el('div',{class:'spacer'}),el('button',{class:'btn small',onclick:()=>editMeeting()},'+ Schedule meeting'));
+  const kc=el('div',{class:'grid cols-3'},
+    kpi(upcomingMeetings(7).length,'Next 7 days','scheduled'),
+    kpi(confirmList.length,'To confirm','did they happen?'),
+    kpi((STATE.meetings||[]).filter(m=>m.status==='held').length,'Held','logged')
+  );
+  const cc=el('div',{class:'card'},el('h3',{},'⚑ Needs your confirmation · '+confirmList.length));
+  if(!confirmList.length)cc.append(el('div',{class:'empty'},'Nothing to confirm — you are up to date.'));
+  confirmList.forEach(m=>cc.append(meetingRow(m,true)));
+  const uc=el('div',{class:'card'},el('h3',{},'Upcoming · '+up.length));
+  if(!up.length)uc.append(el('div',{class:'empty'},'No upcoming meetings. Click “+ Schedule meeting”.'));
+  up.forEach(m=>uc.append(meetingRow(m,false)));
+  const pc=el('div',{class:'card'},el('h3',{},'Recent — held & missed'));
+  if(!past.length)pc.append(el('div',{class:'empty'},'None yet.'));
+  past.slice(0,40).forEach(m=>pc.append(meetingRow(m,false)));
+  render([kc,bar,cc,uc,pc]);
+};
+function meetingRow(m,needsConfirm){
+  const statusTag = m.status==='held'?el('span',{class:'tag good'},'held') : m.status==='missed'?el('span',{class:'tag bad'},'missed') : m.status==='cancelled'?el('span',{class:'tag'},'cancelled') : el('span',{class:'tag info'},'scheduled');
+  const acts=el('div',{class:'act'});
+  if(needsConfirm){
+    acts.append(
+      el('button',{class:'mini y',onclick:()=>confirmMeetingHeld(m)},'✓ Held'),
+      el('button',{class:'mini',onclick:()=>markMeetingMissed(m)},'✗ Didn’t happen'),
+      el('button',{class:'mini',onclick:()=>editMeeting(m)},'Reschedule')
+    );
+  } else {
+    if(m.status==='scheduled' && m.mode==='Virtual' && m.location) acts.append(el('a',{class:'mini',href:m.location,target:'_blank'},'Join'));
+    acts.append(el('button',{class:'mini',onclick:()=>editMeeting(m)}, m.status==='held'?'View / edit notes':'Edit'));
+  }
+  return el('div',{class:'actionitem'},
+    el('div',{class:'dot '+(m.status==='held'?'good':m.status==='missed'?'bad':needsConfirm?'warn':'info')}),
+    el('div',{class:'body'},
+      el('div',{class:'t'},(m.title? m.title+' · ':'')+meetingWithName(m)),
+      el('div',{class:'d'},niceMeetingWhen(m)+' · '+(m.mode||'')+(m.location&&m.mode!=='Virtual'?(' · '+m.location):'')),
+      m.summary?el('div',{class:'d',style:'color:var(--muted)'},'“'+m.summary+'”'):null,
+      acts
+    ),
+    statusTag
+  );
+}
+function editMeeting(m){
+  const isNew=!m; m=m||{mode:'In person',date:iso(today()),time:'09:00',status:'scheduled'};
+  const opts=attendeeOptions();
+  const curKey=m.withType?(m.withType+':'+m.withId):'';
+  const withSel=el('select',{});
+  withSel.append(el('option',{value:''},'— choose introducer or client —'));
+  opts.forEach(o=>withSel.append(el('option',{value:o.key,...(o.key===curKey?{selected:'1'}:{})},o.label)));
+  const withField=el('div',{class:'field',style:'grid-column:1/-1'},el('label',{},'Meeting with'),withSel);
+  const f={
+    title:inp('Title / purpose',m.title,{full:true}),
+    date:inp('Date',m.date,{type:'date'}), time:inp('Time',m.time,{type:'time'}),
+    mode:sel('Mode',m.mode,['In person','Virtual','Phone']),
+    location:inp('Location / video link',m.location,{full:true}),
+    agenda:area('Agenda / notes',m.agenda)
+  };
+  const kids=[withField,f.title.node,f.date.node,f.time.node,f.mode.node,f.location.node,f.agenda.node];
+  if(!isNew && m.status==='held'){ f.summary=area('What was discussed (updates the logged note)',m.summary); kids.push(f.summary.node); }
+  const grid=el('div',{class:'formgrid'},...kids);
+  openModal(isNew?'Schedule meeting':'Edit meeting',grid,()=>{
+    const key=withSel.value; const parts=key?key.split(':'):['',''];
+    Object.assign(m,{withType:parts[0]||null,withId:parts[1]||null,title:f.title.get(),date:f.date.get(),time:f.time.get(),mode:f.mode.get(),location:f.location.get(),agenda:f.agenda.get()});
+    if(f.summary){ m.summary=f.summary.get(); if(m.interactionId){ const arr=(m.interactionKind==='client')?STATE.clientInteractions:STATE.interactions; const rec=arr.find(x=>x.id===m.interactionId); if(rec)rec.summary=m.summary; } }
+    if(isNew){ m.id=uid(); m.status='scheduled'; STATE.meetings.push(m); }
+    queueSave();updateBadges();VIEWS.meetings();
+  },'Save', isNew?undefined:()=>deleteMeeting(m));
+}
+function deleteMeeting(m){ if(!confirm('Delete this meeting?'+(m.status==='held'?' (The logged interaction in the contact’s history will remain.)':'')))return; STATE.meetings=STATE.meetings.filter(x=>x.id!==m.id); queueSave();updateBadges();closeModal();VIEWS.meetings(); }
+function confirmMeetingHeld(m){
+  const f={ summary:area('What was discussed',m.summary||m.agenda||''),
+    next:inp('Next action (optional)','',{full:true}),
+    nextDate:inp('Next action date',addDays(iso(today()),14),{type:'date'}) };
+  const grid=el('div',{class:'formgrid'},f.summary.node,f.next.node,f.nextDate.node);
+  openModal('Confirm meeting held · '+meetingWithName(m),grid,()=>{
+    m.status='held'; m.summary=f.summary.get();
+    const rec={id:uid(),date:m.date,channel:'Meeting'+(m.mode?(' ('+m.mode+')'):''),summary:f.summary.get(),
+      nextAction:f.next.get(),nextActionDate:f.next.get()?f.nextDate.get():'',by:STATE.settings.userName||'You',meetingId:m.id};
+    if(m.withType==='introducer'){ rec.introducerId=m.withId; STATE.interactions.push(rec); const i=introById(m.withId); if(i)i.lastContact=m.date; m.interactionKind='introducer'; }
+    else { rec.clientId=m.withId; STATE.clientInteractions.push(rec); const c=clientById(m.withId); if(c)c.lastContact=m.date; m.interactionKind='client'; }
+    m.interactionId=rec.id;
+    STATE.log.push({date:iso(today()),what:'Confirmed meeting held with '+meetingWithName(m)});
+    queueSave();updateBadges();go(CUR);
+  },'Save & log to history');
+}
+function markMeetingMissed(m){
+  if(!confirm('Mark this meeting as not held? You can reschedule it afterwards from the calendar.'))return;
+  m.status='missed'; STATE.log.push({date:iso(today()),what:'Meeting not held: '+meetingWithName(m)});
+  queueSave();updateBadges();go(CUR);
+}
+function todayMeetingsCard(){
+  const up=upcomingMeetings(7);
+  const card=el('div',{class:'card'},el('h3',{},'Upcoming meetings ',el('span',{class:'sub'},'· next 7 days · '+up.length)));
+  if(!up.length){ card.append(el('div',{class:'empty'},'No meetings scheduled in the next 7 days. Add one in the Meetings tab.')); return card; }
+  up.forEach(m=>card.append(el('div',{class:'actionitem'},
+    el('div',{class:'dot info'}),
+    el('div',{class:'body'},
+      el('div',{class:'t'},(m.title?m.title+' · ':'')+meetingWithName(m)),
+      el('div',{class:'d'},niceMeetingWhen(m)+' · '+(m.mode||'')),
+      el('div',{class:'act'},
+        (m.mode==='Virtual'&&m.location)?el('a',{class:'mini',href:m.location,target:'_blank'},'Join'):null,
+        el('button',{class:'mini',onclick:()=>editMeeting(m)},'Edit'),
+        el('button',{class:'mini',onclick:()=>go('meetings')},'Open calendar')
+      )
+    )
+  )));
+  return card;
+}
 function logInteraction(introId){
   const i=introById(introId);
   const f={
@@ -3712,10 +3864,10 @@ async function importContacts(e){
   e.target.value='';
 }
 function removeSamples(){
-  const keys=['introducers','prospects','events','travel','knowledge','clients'];
+  const keys=['introducers','prospects','events','travel','knowledge','clients','meetings'];
   const n=keys.reduce((s,k)=>s+(STATE[k]||[]).filter(x=>x._sample).length,0);
   if(!n){alert('No sample data found — you are already running on your own data.');return;}
-  if(!confirm('Remove all '+n+' demo/sample records (sample introducers, clients, prospects, events, travel, library items)? Your imported contacts and any real data you added will stay.'))return;
+  if(!confirm('Remove all '+n+' demo/sample records (sample introducers, clients, prospects, events, travel, meetings, library items)? Your imported contacts and any real data you added will stay.'))return;
   const sampleIntroIds=new Set(STATE.introducers.filter(i=>i._sample).map(i=>i.id));
   const sampleClientIds=new Set(STATE.clients.filter(c=>c._sample).map(c=>c.id));
   keys.forEach(k=>{STATE[k]=STATE[k].filter(x=>!x._sample);});
