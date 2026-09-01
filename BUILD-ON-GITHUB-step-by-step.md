@@ -79,7 +79,7 @@ Your 229 intermediaries have already been prepared into an import file: **`my-co
 1. In the app, go to **Settings → Contacts → ⬆ Import my contacts (.json)**.
 2. Choose **`my-contacts.LOCAL-ONLY.json`** from the `personal-bd-system` folder. You'll see “Imported 229 contacts.”
 3. Click **🧹 Remove sample data** to clear the demo introducers/prospects/events. You're now running on your own network.
-4. Set your name and catch-in cadences in **Settings** (defaults: Tier A every 42 days, B every 60, C every 90).
+4. Set your name and tier cadences in **Settings** (defaults: **Tier A every 15 days, B every 30, C every 60** — these apply to both introducers and clients). When you pick a tier while adding a contact, the cadence field fills in automatically; change a tier number in Settings and everyone on that tier updates.
 5. As you work, **log catch-ins**, update **pipeline** stages, and add **events** and **trips**.
 
 Everything saves automatically and encrypted, in your browser.

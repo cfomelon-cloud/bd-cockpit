@@ -2652,7 +2652,7 @@ function flashSaved(){const c=$('#saveChip');c.textContent='✓ Saved';setTimeou
    ============================================================ */
 function seed(){
   const t=iso(today());
-  const I=(o)=>Object.assign({id:uid(),cadenceDays:o.tier==='A'?42:o.tier==='B'?60:90,active:true,notes:''},o);
+  const I=(o)=>Object.assign({id:uid(),active:true,notes:''},o);
   const introducers=[
     I({name:'Amanda Chan',    org:'HSBC Private Banking', region:'Hong Kong',      type:'Bank', tier:'A', role:'Senior RM', owner:'You',        email:'', lastContact:addDays(t,-51)}),
     I({name:'Victor Leung',   org:'Bank of Singapore',    region:'Singapore',      type:'Bank', tier:'A', role:'Team Head', owner:'You',        email:'', lastContact:addDays(t,-63)}),
@@ -2697,7 +2697,7 @@ function seed(){
     {id:uid(),destination:'Hong Kong',region:'Hong Kong',start:addDays(t,20),end:addDays(t,25),purpose:'Client + intermediary visits',meetingIds:[byOrg('HSBC').id,byOrg('Vistra').id],notes:'Line up dinners; combine with Vistra seminar prep'},
     {id:uid(),destination:'Zurich / Geneva',region:'Switzerland',start:addDays(t,48),end:addDays(t,53),purpose:'Build Swiss network',meetingIds:[byOrg('Pictet').id,byOrg('UBS').id,byOrg('Lombard').id],notes:'First Switzerland trip — introductions via UBS'},
   ];
-  const C=(o)=>Object.assign({id:uid(),cadenceDays:o.tier==='A'?60:o.tier==='B'?90:120,active:true,notes:'',feeAnnual:0},o);
+  const C=(o)=>Object.assign({id:uid(),active:true,notes:'',feeAnnual:0},o);
   const clients=[
     C({name:'Zhang Wei',                type:'Individual',                region:'Hong Kong',      services:'Self-assessment; FIG advisory',        sourceId:byOrg('HSBC').id,        owner:'You', tier:'A', email:'', feeAnnual:14000, lastContact:addDays(t,-58)}),
     C({name:'Chen Family Investment Co',type:'Family investment company', region:'Singapore',      services:'FIC maintenance; corporate tax return',sourceId:byOrg('Bank of Sing').id,owner:'You', tier:'A', email:'', feeAnnual:32000, lastContact:addDays(t,-88)}),
@@ -2715,7 +2715,7 @@ function seed(){
   [...introducers,...interactions,...prospects,...events,...knowledge,...travel,...clients,...clientInteractions,...meetings].forEach(o=>{o._sample=true;});
   return {
     updatedAt:0,
-    settings:{userName:'You',cadenceA:42,cadenceB:60,cadenceC:90,created:t,
+    settings:{userName:'You',cadenceA:15,cadenceB:30,cadenceC:60,cadenceVersion:2,created:t,
               sync:{enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'}},
     introducers,interactions,prospects,events,knowledge,travel,clients,clientInteractions,meetings,
     log:[] // completed action log
@@ -2726,7 +2726,8 @@ function seed(){
    4. Derived / analytics helpers
    ============================================================ */
 function introById(id){return STATE.introducers.find(i=>i.id===id);}
-function cadenceDays(i){return i.cadenceDays || (i.tier==='A'?STATE.settings.cadenceA:i.tier==='B'?STATE.settings.cadenceB:STATE.settings.cadenceC);}
+function tierDefault(tier){return tier==='A'?STATE.settings.cadenceA:tier==='B'?STATE.settings.cadenceB:STATE.settings.cadenceC;}
+function cadenceDays(i){return i.cadenceDays || tierDefault(i.tier);}
 function nextDue(i){ if(!i.lastContact) return {date:iso(today()),overdue:true,never:true}; const d=addDays(i.lastContact,cadenceDays(i)); return {date:d,overdue:daysBetween(today(),d)<=0,never:false};}
 function overdueIntroducers(){ return STATE.introducers.filter(i=>i.active).map(i=>({i,due:nextDue(i)})).filter(x=>x.due.overdue).sort((a,b)=>parse(a.due.date)-parse(b.due.date)); }
 function dueFollowUps(){ return STATE.interactions.filter(x=>x.nextAction && x.nextActionDate && daysBetween(today(),x.nextActionDate)<=0).sort((a,b)=>parse(a.nextActionDate)-parse(b.nextActionDate)); }
@@ -2830,6 +2831,8 @@ function ensureShape(){
   STATE.meetings=STATE.meetings||[];
   STATE.log=STATE.log||[];
   if(!STATE.settings.sync)STATE.settings.sync={enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'};
+  // one-time migration to the new tier presets (A=15, B=30, C=60 days), applied to introducers & clients
+  if(!STATE.settings.cadenceVersion){ STATE.settings.cadenceA=15; STATE.settings.cadenceB=30; STATE.settings.cadenceC=60; STATE.settings.cadenceVersion=2; }
 }
 function go(view){
   ensureShape();
@@ -3210,12 +3213,13 @@ VIEWS.devs=()=>{
 /* ---------- SETTINGS ---------- */
 VIEWS.settings=()=>{
   const s=STATE.settings;
-  const box=el('div',{class:'card'},el('h3',{},'Profile & cadence defaults'),
+  const box=el('div',{class:'card'},el('h3',{},'Profile & tier cadence'),
     field2('Your name',el('input',{value:s.userName,onchange:e=>{s.userName=e.target.value;$('#whoami').textContent=e.target.value+' · Private Capital';queueSave();}})),
+    el('p',{class:'sub',style:'margin:2px 0 10px'},'How often to catch up, by priority tier — applies to both introducers and clients. Anyone left on the tier default follows these automatically; change a number here and everyone on that tier updates.'),
     el('div',{class:'formgrid'},
-      field2('Tier A cadence (days)',el('input',{type:'number',value:s.cadenceA,onchange:e=>{s.cadenceA=+e.target.value;queueSave();}})),
-      field2('Tier B cadence (days)',el('input',{type:'number',value:s.cadenceB,onchange:e=>{s.cadenceB=+e.target.value;queueSave();}})),
-      field2('Tier C cadence (days)',el('input',{type:'number',value:s.cadenceC,onchange:e=>{s.cadenceC=+e.target.value;queueSave();}}))
+      field2('Tier A cadence (days)',el('input',{type:'number',value:s.cadenceA,onchange:e=>{s.cadenceA=+e.target.value||s.cadenceA;queueSave();updateBadges();}})),
+      field2('Tier B cadence (days)',el('input',{type:'number',value:s.cadenceB,onchange:e=>{s.cadenceB=+e.target.value||s.cadenceB;queueSave();updateBadges();}})),
+      field2('Tier C cadence (days)',el('input',{type:'number',value:s.cadenceC,onchange:e=>{s.cadenceC=+e.target.value||s.cadenceC;queueSave();updateBadges();}}))
     )
   );
   const data=el('div',{class:'card'},el('h3',{},'Data & backup'),
@@ -3291,8 +3295,8 @@ function openModal(title,bodyNodes,onSave,saveLabel='Save',onDelete){
 function closeModal(){$('#modal').classList.add('hidden');}
 $('#modalX').onclick=closeModal;
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
-function inp(label,val,opts={}){const i=el('input',Object.assign({value:val==null?'':val},opts));return {node:el('div',{class:'field'+(opts.full?' full':''),style:opts.full?'grid-column:1/-1':''},el('label',{},label),i),get:()=>i.value};}
-function sel(label,val,options,opts={}){const s=el('select',{});options.forEach(o=>s.append(el('option',{value:o,...(o===val?{selected:'1'}:{})},o)));return{node:el('div',{class:'field',style:opts.full?'grid-column:1/-1':''},el('label',{},label),s),get:()=>s.value};}
+function inp(label,val,opts={}){const i=el('input',Object.assign({value:val==null?'':val},opts));return {node:el('div',{class:'field'+(opts.full?' full':''),style:opts.full?'grid-column:1/-1':''},el('label',{},label),i),get:()=>i.value,el:i};}
+function sel(label,val,options,opts={}){const s=el('select',{});options.forEach(o=>s.append(el('option',{value:o,...(o===val?{selected:'1'}:{})},o)));return{node:el('div',{class:'field',style:opts.full?'grid-column:1/-1':''},el('label',{},label),s),get:()=>s.value,el:s};}
 function area(label,val){const t=el('textarea',{},);t.value=val||'';return{node:el('div',{class:'field',style:'grid-column:1/-1'},el('label',{},label),t),get:()=>t.value};}
 /* Reusable introducer picker with inline "add a new introducer" — used by Pipeline and Clients editors */
 function introducerSourcePicker(currentValue,label){
@@ -3327,13 +3331,16 @@ function editIntroducer(i){
     type:sel('Type',i.type,INTRO_TYPES), tier:sel('Priority tier',i.tier,['A','B','C']),
     owner:inp('Relationship owner',i.owner,{}), email:inp('Email (optional)',i.email,{type:'email'}),
     last:inp('Last contact date',i.lastContact,{type:'date'}),
-    cad:inp('Custom cadence (days, optional)',i.cadenceDays,{type:'number'}),
+    cad:inp('Catch-up cadence (days) — preset by tier',i.cadenceDays,{type:'number'}),
     status:sel('Status',i.active===false?'Archived':'Active',['Active','Archived']),
     notes:area('Notes',i.notes)
   };
+  if(isNew || i.cadenceDays==null) f.cad.el.value=tierDefault(f.tier.el.value);
+  f.tier.el.addEventListener('change',()=>{ f.cad.el.value=tierDefault(f.tier.el.value); });
   const grid=el('div',{class:'formgrid'},f.name.node,f.org.node,f.role.node,f.region.node,f.type.node,f.tier.node,f.owner.node,f.email.node,f.last.node,f.cad.node,f.status.node,f.notes.node);
   openModal(isNew?'Add introducer':'Edit introducer',grid,()=>{
-    Object.assign(i,{name:f.name.get(),org:f.org.get(),role:f.role.get(),region:f.region.get(),type:f.type.get(),tier:f.tier.get(),owner:f.owner.get(),email:f.email.get(),lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,active:f.status.get()==='Active',notes:f.notes.get()});
+    const cadVal=+f.cad.get(), td=tierDefault(f.tier.get());
+    Object.assign(i,{name:f.name.get(),org:f.org.get(),role:f.role.get(),region:f.region.get(),type:f.type.get(),tier:f.tier.get(),owner:f.owner.get(),email:f.email.get(),lastContact:f.last.get()||null,cadenceDays:(cadVal&&cadVal!==td)?cadVal:undefined,active:f.status.get()==='Active',notes:f.notes.get()});
     if(isNew){i.id=uid();STATE.introducers.push(i);}
     queueSave();updateBadges();VIEWS.introducers();
   },'Save', isNew?undefined:()=>deleteIntroducer(i));
@@ -3429,14 +3436,17 @@ function editClient(c){
     owner:inp('Relationship owner',c.owner,{}), email:inp('Email (optional)',c.email,{type:'email'}),
     fee:inp('Annual fee (£, optional)',c.feeAnnual,{type:'number'}),
     last:inp('Last contact date',c.lastContact,{type:'date'}),
-    cad:inp('Custom cadence (days, optional)',c.cadenceDays,{type:'number'}),
+    cad:inp('Catch-up cadence (days) — preset by tier',c.cadenceDays,{type:'number'}),
     status:sel('Status',c.active===false?'Archived':'Active',['Active','Archived']),
     notes:area('Notes',c.notes)
   };
+  if(isNew || c.cadenceDays==null) f.cad.el.value=tierDefault(f.tier.el.value);
+  f.tier.el.addEventListener('change',()=>{ f.cad.el.value=tierDefault(f.tier.el.value); });
   const grid=el('div',{class:'formgrid'},f.name.node,f.type.node,f.region.node,f.tier.node,f.services.node,picker.field,f.owner.node,f.email.node,f.fee.node,f.last.node,f.cad.node,f.status.node,f.notes.node,picker.niBox);
   openModal(isNew?'Add client':'Edit client',grid,()=>{
     const src=picker.resolve();
-    Object.assign(c,{name:f.name.get(),type:f.type.get(),region:f.region.get(),tier:f.tier.get(),services:f.services.get(),sourceId:src?src.id:null,owner:f.owner.get(),email:f.email.get(),feeAnnual:+f.fee.get()||0,lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,active:f.status.get()==='Active',notes:f.notes.get()});
+    const cadVal=+f.cad.get(), td=tierDefault(f.tier.get());
+    Object.assign(c,{name:f.name.get(),type:f.type.get(),region:f.region.get(),tier:f.tier.get(),services:f.services.get(),sourceId:src?src.id:null,owner:f.owner.get(),email:f.email.get(),feeAnnual:+f.fee.get()||0,lastContact:f.last.get()||null,cadenceDays:(cadVal&&cadVal!==td)?cadVal:undefined,active:f.status.get()==='Active',notes:f.notes.get()});
     if(isNew){c.id=uid();STATE.clients.push(c);}
     queueSave();updateBadges();VIEWS.clients();
   },'Save', isNew?undefined:()=>deleteClient(c));
