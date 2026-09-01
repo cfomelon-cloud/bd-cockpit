@@ -2915,7 +2915,7 @@ VIEWS.insights=()=>{
 };
 
 /* ---------- INTRODUCERS ---------- */
-let introFilter={q:'',region:'',type:'',tier:'',owner:'',hideArchived:false}, introSort={k:'due',dir:1};
+let introFilter={q:'',region:'',type:'',tier:'',owner:'',hideArchived:false}, introSort={k:'org',dir:1};
 VIEWS.introducers=()=>{
   const bar=el('div',{class:'toolbar'});
   bar.append(
@@ -2950,12 +2950,13 @@ function renderIntroTable(){
     if(introFilter.hideArchived&&i.active===false)return false;
     return true;
   }).map(i=>({i,due:nextDue(i)}));
+  const cmp=(x,y)=>String(x||'').toLowerCase().localeCompare(String(y||'').toLowerCase());
   rows.sort((a,b)=>{
     let r=0; const k=introSort.k;
     if(k==='due')r=parse(a.due.date)-parse(b.due.date);
-    else if(k==='name')r=a.i.name.localeCompare(b.i.name);
-    else if(k==='org')r=a.i.org.localeCompare(b.i.org);
-    else if(k==='tier')r=a.i.tier.localeCompare(b.i.tier);
+    else if(k==='name')r=cmp(a.i.name,b.i.name)||cmp(a.i.org,b.i.org);
+    else if(k==='org')r=cmp(a.i.org,b.i.org)||cmp(a.i.name,b.i.name);
+    else if(k==='tier')r=cmp(a.i.tier,b.i.tier)||cmp(a.i.org,b.i.org);
     else if(k==='last')r=parse(a.i.lastContact||'1970-01-01')-parse(b.i.lastContact||'1970-01-01');
     return r*introSort.dir;
   });
@@ -3271,6 +3272,30 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();}
 function inp(label,val,opts={}){const i=el('input',Object.assign({value:val==null?'':val},opts));return {node:el('div',{class:'field'+(opts.full?' full':''),style:opts.full?'grid-column:1/-1':''},el('label',{},label),i),get:()=>i.value};}
 function sel(label,val,options,opts={}){const s=el('select',{});options.forEach(o=>s.append(el('option',{value:o,...(o===val?{selected:'1'}:{})},o)));return{node:el('div',{class:'field',style:opts.full?'grid-column:1/-1':''},el('label',{},label),s),get:()=>s.value};}
 function area(label,val){const t=el('textarea',{},);t.value=val||'';return{node:el('div',{class:'field',style:'grid-column:1/-1'},el('label',{},label),t),get:()=>t.value};}
+/* Reusable introducer picker with inline "add a new introducer" — used by Pipeline and Clients editors */
+function introducerSourcePicker(currentValue,label){
+  const ADDNEW='➕ Add a new introducer…';
+  const orgs=STATE.introducers.filter(i=>i.active!==false).map(i=>i.org+' — '+i.name).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+  const ni={ name:inp('New introducer — contact name','',{}), org:inp('Organisation','',{}),
+             region:sel('Region','Hong Kong',REGIONS), type:sel('Type','Bank',INTRO_TYPES), tier:sel('Tier','B',['A','B','C']) };
+  const niBox=el('div',{class:'formgrid',style:'grid-column:1/-1;display:none;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--panel-2)'},
+    el('div',{style:'grid-column:1/-1;font-size:12px;color:var(--muted)'},'New introducer — added to your Introducers on save (name is required):'),
+    ni.name.node, ni.org.node, ni.region.node, ni.type.node, ni.tier.node);
+  const srcSel=el('select',{onchange:()=>{ niBox.style.display = srcSel.value===ADDNEW ? 'grid' : 'none'; }});
+  ['',ADDNEW,...orgs].forEach(o=>srcSel.append(el('option',{value:o,...(o===currentValue?{selected:'1'}:{})},o)));
+  const field=el('div',{class:'field'},el('label',{},label||'Source (introducer)'),srcSel);
+  function resolve(){
+    const v=srcSel.value;
+    if(v===ADDNEW && ni.name.get().trim()){
+      const s={id:uid(),active:true,notes:'',name:ni.name.get().trim(),org:ni.org.get().trim(),role:'',
+        region:ni.region.get(),type:ni.type.get(),tier:ni.tier.get(),owner:'You',email:'',location:'',lastContact:null};
+      STATE.introducers.push(s); return s;
+    }
+    if(v && v!==ADDNEW) return STATE.introducers.find(i=>(i.org+' — '+i.name)===v)||null;
+    return null;
+  }
+  return {field,niBox,resolve};
+}
 
 function editIntroducer(i){
   const isNew=!i; i=i||{tier:'B',type:'Bank',region:'Hong Kong',owner:'You',lastContact:''};
@@ -3304,7 +3329,7 @@ function deleteIntroducer(i){
    CLIENTS — your own client database & regular-interaction care
    ============================================================ */
 const CLIENT_TYPES=['Individual','Couple/Family','Trust','Company','Family investment company','Other'];
-let clientFilter={q:'',region:'',type:'',tier:'',owner:'',hideArchived:false}, clientSort={k:'due',dir:1};
+let clientFilter={q:'',region:'',type:'',tier:'',owner:'',hideArchived:false}, clientSort={k:'name',dir:1};
 function clientById(id){ return (STATE.clients||[]).find(c=>c.id===id); }
 function overdueClients(){ return (STATE.clients||[]).filter(c=>c.active!==false).map(c=>({c,due:nextDue(c)})).filter(x=>x.due.overdue).sort((a,b)=>parse(a.due.date)-parse(b.due.date)); }
 VIEWS.clients=()=>{
@@ -3341,10 +3366,11 @@ function renderClientTable(){
     if(clientFilter.hideArchived&&c.active===false)return false;
     return true;
   }).map(c=>({c,due:nextDue(c)}));
+  const cmp=(x,y)=>String(x||'').toLowerCase().localeCompare(String(y||'').toLowerCase());
   rows.sort((a,b)=>{let r=0;const k=clientSort.k;
     if(k==='due')r=parse(a.due.date)-parse(b.due.date);
-    else if(k==='name')r=a.c.name.localeCompare(b.c.name);
-    else if(k==='tier')r=a.c.tier.localeCompare(b.c.tier);
+    else if(k==='name')r=cmp(a.c.name,b.c.name);
+    else if(k==='tier')r=cmp(a.c.tier,b.c.tier)||cmp(a.c.name,b.c.name);
     else if(k==='last')r=parse(a.c.lastContact||'1970-01-01')-parse(b.c.lastContact||'1970-01-01');
     return r*clientSort.dir;});
   const th=(k,l)=>el('th',{onclick:()=>{clientSort.dir=(clientSort.k===k?-clientSort.dir:1);clientSort.k=k;renderClientTable();}}, l+(clientSort.k===k?(clientSort.dir>0?' ▲':' ▼'):''));
@@ -3372,13 +3398,12 @@ function renderClientTable(){
 }
 function editClient(c){
   const isNew=!c; c=c||{tier:'B',type:'Individual',region:'Hong Kong',owner:'You',lastContact:'',feeAnnual:0};
-  const orgs=STATE.introducers.map(i=>i.org+' — '+i.name);
   const cur=(!isNew&&c.sourceId&&introById(c.sourceId))?introById(c.sourceId).org+' — '+introById(c.sourceId).name:'';
+  const picker=introducerSourcePicker(cur,'Referred by (introducer)');
   const f={
     name:inp('Client name',c.name,{}), type:sel('Type',c.type,CLIENT_TYPES),
     region:sel('Region',c.region,REGIONS), tier:sel('Priority tier',c.tier,['A','B','C']),
     services:inp('Services we provide',c.services,{full:true}),
-    source:sel('Referred by (introducer)',cur,['',...orgs]),
     owner:inp('Relationship owner',c.owner,{}), email:inp('Email (optional)',c.email,{type:'email'}),
     fee:inp('Annual fee (£, optional)',c.feeAnnual,{type:'number'}),
     last:inp('Last contact date',c.lastContact,{type:'date'}),
@@ -3386,9 +3411,9 @@ function editClient(c){
     status:sel('Status',c.active===false?'Archived':'Active',['Active','Archived']),
     notes:area('Notes',c.notes)
   };
-  const grid=el('div',{class:'formgrid'},f.name.node,f.type.node,f.region.node,f.tier.node,f.services.node,f.source.node,f.owner.node,f.email.node,f.fee.node,f.last.node,f.cad.node,f.status.node,f.notes.node);
+  const grid=el('div',{class:'formgrid'},f.name.node,f.type.node,f.region.node,f.tier.node,f.services.node,picker.field,f.owner.node,f.email.node,f.fee.node,f.last.node,f.cad.node,f.status.node,f.notes.node,picker.niBox);
   openModal(isNew?'Add client':'Edit client',grid,()=>{
-    const srcVal=f.source.get(); const src=STATE.introducers.find(i=>(i.org+' — '+i.name)===srcVal);
+    const src=picker.resolve();
     Object.assign(c,{name:f.name.get(),type:f.type.get(),region:f.region.get(),tier:f.tier.get(),services:f.services.get(),sourceId:src?src.id:null,owner:f.owner.get(),email:f.email.get(),feeAnnual:+f.fee.get()||0,lastContact:f.last.get()||null,cadenceDays:+f.cad.get()||undefined,active:f.status.get()==='Active',notes:f.notes.get()});
     if(isNew){c.id=uid();STATE.clients.push(c);}
     queueSave();updateBadges();VIEWS.clients();
@@ -3491,17 +3516,8 @@ function editEvent(e){
 }
 function editProspect(p){
   const isNew=!p; p=p||{stage:'New',dateIn:iso(today()),lastUpdate:iso(today()),region:'Hong Kong',feeProposed:0,revenue:0,crossTeam:0};
-  const orgs=STATE.introducers.map(i=>i.org+' — '+i.name);
   const cur=isNew?'':(introById(p.sourceId)?introById(p.sourceId).org+' — '+introById(p.sourceId).name:'');
-  const ADDNEW='➕ Add a new introducer…';
-  const ni={ name:inp('New introducer — contact name','',{}), org:inp('Organisation','',{}),
-             region:sel('Region','Hong Kong',REGIONS), type:sel('Type','Bank',INTRO_TYPES), tier:sel('Tier','B',['A','B','C']) };
-  const niBox=el('div',{class:'formgrid',style:'grid-column:1/-1;display:none;border:1px dashed var(--line);border-radius:10px;padding:12px;background:var(--panel-2)'},
-    el('div',{style:'grid-column:1/-1;font-size:12px;color:var(--muted)'},'New introducer — added to your Introducers when you save this prospect (name is required):'),
-    ni.name.node, ni.org.node, ni.region.node, ni.type.node, ni.tier.node);
-  const srcSel=el('select',{onchange:()=>{ niBox.style.display = srcSel.value===ADDNEW ? 'grid' : 'none'; }});
-  ['',ADDNEW,...orgs].forEach(o=>srcSel.append(el('option',{value:o,...(o===cur?{selected:'1'}:{})},o)));
-  const sourceField=el('div',{class:'field'},el('label',{},'Source (introducer)'),srcSel);
+  const picker=introducerSourcePicker(cur,'Source (introducer)');
   const f={
     name:inp('Prospect / family name',p.name,{}),
     service:inp('Service',p.service,{full:true}),
@@ -3511,14 +3527,9 @@ function editProspect(p){
     revenue:inp('Revenue won (£)',p.revenue,{type:'number'}),
     cross:inp('Cross-team revenue (£)',p.crossTeam,{type:'number'})
   };
-  const grid=el('div',{class:'formgrid'},f.name.node,sourceField,f.service.node,f.region.node,f.fee.node,f.stage.node,f.revenue.node,f.cross.node,niBox);
+  const grid=el('div',{class:'formgrid'},f.name.node,picker.field,f.service.node,f.region.node,f.fee.node,f.stage.node,f.revenue.node,f.cross.node,picker.niBox);
   openModal(isNew?'Add prospect':'Edit prospect',grid,()=>{
-    let src=null; const srcVal=srcSel.value;
-    if(srcVal===ADDNEW && ni.name.get().trim()){
-      src={id:uid(),active:true,notes:'',name:ni.name.get().trim(),org:ni.org.get().trim(),role:'',
-           region:ni.region.get(),type:ni.type.get(),tier:ni.tier.get(),owner:'You',email:'',location:'',lastContact:null};
-      STATE.introducers.push(src);
-    } else if(srcVal && srcVal!==ADDNEW){ src=STATE.introducers.find(i=>(i.org+' — '+i.name)===srcVal); }
+    const src=picker.resolve();
     Object.assign(p,{name:f.name.get(),sourceId:src?src.id:null,service:f.service.get(),region:f.region.get(),feeProposed:+f.fee.get(),stage:f.stage.get(),revenue:+f.revenue.get(),crossTeam:+f.cross.get(),lastUpdate:iso(today())});
     if(isNew){p.id=uid();p.dateIn=iso(today());STATE.prospects.push(p);} queueSave();updateBadges();VIEWS.pipeline();
   });
