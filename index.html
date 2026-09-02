@@ -2716,6 +2716,7 @@ function seed(){
   return {
     updatedAt:0,
     settings:{userName:'You',cadenceA:15,cadenceB:30,cadenceC:60,cadenceVersion:2,created:t,
+              inviteEmail:'',autoCalendar:true,
               sync:{enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'}},
     introducers,interactions,prospects,events,knowledge,travel,clients,clientInteractions,meetings,
     log:[] // completed action log
@@ -2833,6 +2834,8 @@ function ensureShape(){
   if(!STATE.settings.sync)STATE.settings.sync={enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'};
   // one-time migration to the new tier presets (A=15, B=30, C=60 days), applied to introducers & clients
   if(!STATE.settings.cadenceVersion){ STATE.settings.cadenceA=15; STATE.settings.cadenceB=30; STATE.settings.cadenceC=60; STATE.settings.cadenceVersion=2; }
+  if(STATE.settings.inviteEmail==null) STATE.settings.inviteEmail='';
+  if(STATE.settings.autoCalendar==null) STATE.settings.autoCalendar=true;
 }
 function go(view){
   ensureShape();
@@ -3272,11 +3275,19 @@ VIEWS.settings=()=>{
       )
     ));
   }
+  const cal=el('div',{class:'card'},el('h3',{},'Calendar & invites'),
+    el('p',{class:'sub',style:'margin:0 0 12px'},'When you schedule a future meeting, the app creates a calendar file (.ics) that adds it straight to your iPhone/Mac Calendar — one tap to confirm — which then syncs to your other calendars. Set the email you want events tagged with.'),
+    field2('Calendar invite email',el('input',{type:'email',value:s.inviteEmail||'',placeholder:'you@example.com',onchange:e=>{s.inviteEmail=e.target.value.trim();queueSave();}})),
+    el('label',{style:'display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;margin-top:6px'},
+      el('input',{type:'checkbox',style:'width:auto',...(s.autoCalendar!==false?{checked:'1'}:{}),onchange:e=>{s.autoCalendar=e.target.checked;queueSave();}}),
+      'Automatically add new meetings to my calendar when I save them'),
+    el('div',{class:'hint'},'A secure static page can’t silently send server emails, so this adds the event to your device Calendar instead (the standard .ics way). On iPhone, tap the downloaded file → “Add to Calendar”. Times use your device’s local time zone. Each meeting also has a “Google” one-tap option.')
+  );
   const danger=el('div',{class:'card'},el('h3',{},'Reset'),
     el('p',{class:'sub',style:'margin:0 0 12px'},'Wipe all data from this browser (your exported vault files are unaffected).'),
     el('button',{class:'btn small danger',onclick:()=>{if(confirm('Erase all local data from this browser? Make sure you have an export.')){localStorage.removeItem(LS_KEY);location.reload();}}},'Erase local data')
   );
-  render([box,contacts,sync,data,danger]);
+  render([box,contacts,cal,sync,data,danger]);
 };
 function field2(label,node){return el('div',{class:'field'},el('label',{},label),node);}
 
@@ -3508,6 +3519,39 @@ function attendeeOptions(){
   arr.sort((a,b)=>a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
   return arr;
 }
+/* ---- Calendar file (.ics) + Google Calendar link for a meeting ---- */
+function icsEscape(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function stampLocal(d){ const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'T'+p(d.getHours())+p(d.getMinutes())+'00'; }
+function meetingEnd(m){ return new Date(mDateTime(m).getTime() + (Math.max(5,+m.durationMin||60))*60000); }
+function buildICS(m){
+  const email=(STATE.settings.inviteEmail||'').trim();
+  const title=(m.title? m.title+' — ':'')+meetingWithName(m);
+  const desc=(m.agenda||'')+(m.mode?('\nMode: '+m.mode):'')+(m.location?('\n'+m.location):'')+'\nScheduled via Private Capital BD Cockpit';
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Private Capital BD Cockpit//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT','UID:bdcockpit-'+m.id+'@bd-cockpit','DTSTAMP:'+stampLocal(new Date()),
+    'DTSTART:'+stampLocal(mDateTime(m)),'DTEND:'+stampLocal(meetingEnd(m)),
+    'SUMMARY:'+icsEscape(title),'LOCATION:'+icsEscape(m.location||''),'DESCRIPTION:'+icsEscape(desc),
+    'STATUS:CONFIRMED','SEQUENCE:'+(m.icsSeq||0)];
+  if(email){ L.push('ORGANIZER;CN='+icsEscape(STATE.settings.userName||'Me')+':mailto:'+email);
+             L.push('ATTENDEE;CN='+icsEscape(STATE.settings.userName||'Me')+';RSVP=TRUE:mailto:'+email); }
+  L.push('BEGIN:VALARM','TRIGGER:-PT30M','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM','END:VEVENT','END:VCALENDAR');
+  return L.join('\r\n');
+}
+function addToCalendar(m){
+  if(!m.withId){ alert('Add a contact to the meeting first, then add it to your calendar.'); return; }
+  const blob=new Blob([buildICS(m)],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const safe=(meetingWithName(m)||'meeting').replace(/[^a-z0-9]+/gi,'-').slice(0,32);
+  const a=el('a',{href:url,download:'meeting-'+safe+'.ics'});
+  document.body.append(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1500);
+}
+function gcalUrl(m){
+  const p=new URLSearchParams({action:'TEMPLATE',text:(m.title?m.title+' — ':'')+meetingWithName(m),
+    dates:stampLocal(mDateTime(m))+'/'+stampLocal(meetingEnd(m)),
+    details:(m.agenda||'')+'  ·  Scheduled via BD Cockpit',location:m.location||''});
+  return 'https://calendar.google.com/calendar/render?'+p.toString();
+}
 VIEWS.meetings=()=>{
   const confirmList=meetingsToConfirm();
   const up=allFutureMeetings();
@@ -3540,6 +3584,10 @@ function meetingRow(m,needsConfirm){
     );
   } else {
     if(m.status==='scheduled' && m.mode==='Virtual' && m.location) acts.append(el('a',{class:'mini',href:m.location,target:'_blank'},'Join'));
+    if(m.status==='scheduled'){
+      acts.append(el('button',{class:'mini',onclick:()=>addToCalendar(m)},'📅 Add to calendar'));
+      acts.append(el('a',{class:'mini',href:gcalUrl(m),target:'_blank'},'Google'));
+    }
     acts.append(el('button',{class:'mini',onclick:()=>editMeeting(m)}, m.status==='held'?'View / edit notes':'Edit'));
   }
   return el('div',{class:'actionitem'},
@@ -3564,19 +3612,24 @@ function editMeeting(m){
   const f={
     title:inp('Title / purpose',m.title,{full:true}),
     date:inp('Date',m.date,{type:'date'}), time:inp('Time',m.time,{type:'time'}),
+    dur:inp('Duration (minutes)',m.durationMin||60,{type:'number'}),
     mode:sel('Mode',m.mode,['In person','Virtual','Phone']),
     location:inp('Location / video link',m.location,{full:true}),
     agenda:area('Agenda / notes',m.agenda)
   };
-  const kids=[withField,f.title.node,f.date.node,f.time.node,f.mode.node,f.location.node,f.agenda.node];
+  const kids=[withField,f.title.node,f.date.node,f.time.node,f.dur.node,f.mode.node,f.location.node,f.agenda.node];
   if(!isNew && m.status==='held'){ f.summary=area('What was discussed (updates the logged note)',m.summary); kids.push(f.summary.node); }
   const grid=el('div',{class:'formgrid'},...kids);
   openModal(isNew?'Schedule meeting':'Edit meeting',grid,()=>{
     const key=withSel.value; const parts=key?key.split(':'):['',''];
-    Object.assign(m,{withType:parts[0]||null,withId:parts[1]||null,title:f.title.get(),date:f.date.get(),time:f.time.get(),mode:f.mode.get(),location:f.location.get(),agenda:f.agenda.get()});
+    Object.assign(m,{withType:parts[0]||null,withId:parts[1]||null,title:f.title.get(),date:f.date.get(),time:f.time.get(),durationMin:+f.dur.get()||60,mode:f.mode.get(),location:f.location.get(),agenda:f.agenda.get()});
     if(f.summary){ m.summary=f.summary.get(); if(m.interactionId){ const arr=(m.interactionKind==='client')?STATE.clientInteractions:STATE.interactions; const rec=arr.find(x=>x.id===m.interactionId); if(rec)rec.summary=m.summary; } }
     if(isNew){ m.id=uid(); m.status='scheduled'; STATE.meetings.push(m); }
+    else if(m.status==='scheduled'){ m.icsSeq=(m.icsSeq||0)+1; }
     queueSave();updateBadges();VIEWS.meetings();
+    // hand a newly-scheduled future meeting to the device calendar (one tap to confirm on iPhone).
+    // Edits don't auto-fire (avoids repeat downloads) — use the meeting's “📅 Add to calendar” button after a reschedule.
+    if(isNew && m.withId && !meetingPassed(m) && STATE.settings.autoCalendar!==false) addToCalendar(m);
   },'Save', isNew?undefined:()=>deleteMeeting(m));
 }
 function deleteMeeting(m){ if(!confirm('Delete this meeting?'+(m.status==='held'?' (The logged interaction in the contact’s history will remain.)':'')))return; STATE.meetings=STATE.meetings.filter(x=>x.id!==m.id); queueSave();updateBadges();closeModal();VIEWS.meetings(); }
@@ -3612,8 +3665,9 @@ function todayMeetingsCard(){
       el('div',{class:'d'},niceMeetingWhen(m)+' · '+(m.mode||'')),
       el('div',{class:'act'},
         (m.mode==='Virtual'&&m.location)?el('a',{class:'mini',href:m.location,target:'_blank'},'Join'):null,
+        el('button',{class:'mini',onclick:()=>addToCalendar(m)},'📅 Add'),
         el('button',{class:'mini',onclick:()=>editMeeting(m)},'Edit'),
-        el('button',{class:'mini',onclick:()=>go('meetings')},'Open calendar')
+        el('button',{class:'mini',onclick:()=>go('meetings')},'Open')
       )
     )
   )));
