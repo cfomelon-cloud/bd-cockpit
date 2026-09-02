@@ -3281,7 +3281,7 @@ VIEWS.settings=()=>{
     el('label',{style:'display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;margin-top:6px'},
       el('input',{type:'checkbox',style:'width:auto',...(s.autoCalendar!==false?{checked:'1'}:{}),onchange:e=>{s.autoCalendar=e.target.checked;queueSave();}}),
       'Automatically add new meetings to my calendar when I save them'),
-    el('div',{class:'hint'},'A secure static page can’t silently send server emails, so this adds the event to your device Calendar instead (the standard .ics way). On iPhone, tap the downloaded file → “Add to Calendar”. Times use your device’s local time zone. Each meeting also has a “Google” one-tap option.')
+    el('div',{class:'hint'},'On iPhone/iPad the app opens Google Calendar pre-filled (tap Save — it then syncs to your iPhone Calendar app via your Google account). On a computer it downloads an .ics for Apple/Outlook. Each meeting also has explicit “Google” and “.ics” buttons. Times use your device’s local time zone. A secure static page can’t silently send server emails, so this is the standard, private way to get events onto your devices.')
   );
   const danger=el('div',{class:'card'},el('h3',{},'Reset'),
     el('p',{class:'sub',style:'margin:0 0 12px'},'Wipe all data from this browser (your exported vault files are unaffected).'),
@@ -3547,11 +3547,18 @@ function addToCalendar(m){
   setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1500);
 }
 function gcalUrl(m){
-  const p=new URLSearchParams({action:'TEMPLATE',text:(m.title?m.title+' — ':'')+meetingWithName(m),
+  let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''; }catch(e){}
+  const params={action:'TEMPLATE',text:(m.title?m.title+' — ':'')+meetingWithName(m),
     dates:stampLocal(mDateTime(m))+'/'+stampLocal(meetingEnd(m)),
-    details:(m.agenda||'')+'  ·  Scheduled via BD Cockpit',location:m.location||''});
-  return 'https://calendar.google.com/calendar/render?'+p.toString();
+    details:(m.agenda||'')+'  ·  Scheduled via BD Cockpit',location:m.location||''};
+  if(tz) params.ctz=tz;
+  return 'https://calendar.google.com/calendar/render?'+new URLSearchParams(params).toString();
 }
+function isIOS(){ return /iP(hone|od|ad)/.test(navigator.userAgent||'') || (/Mac/.test(navigator.platform||'') && (navigator.maxTouchPoints||0)>1); }
+function openInGCal(m){ if(!m.withId){ alert('Add a contact to the meeting first, then add it to your calendar.'); return; } const w=window.open(gcalUrl(m),'_blank'); if(!w) location.href=gcalUrl(m); }
+/* Platform-aware "add to calendar": iOS/iPadOS -> Google Calendar (reliable, syncs to the iPhone Calendar app);
+   desktop/other -> download the .ics for Apple/Outlook. */
+function sendToCalendar(m){ if(!m.withId){ alert('Add a contact to the meeting first, then add it to your calendar.'); return; } if(isIOS()) openInGCal(m); else addToCalendar(m); }
 VIEWS.meetings=()=>{
   const confirmList=meetingsToConfirm();
   const up=allFutureMeetings();
@@ -3585,8 +3592,9 @@ function meetingRow(m,needsConfirm){
   } else {
     if(m.status==='scheduled' && m.mode==='Virtual' && m.location) acts.append(el('a',{class:'mini',href:m.location,target:'_blank'},'Join'));
     if(m.status==='scheduled'){
-      acts.append(el('button',{class:'mini',onclick:()=>addToCalendar(m)},'📅 Add to calendar'));
+      acts.append(el('button',{class:'mini',onclick:()=>sendToCalendar(m)},'📅 Add to calendar'));
       acts.append(el('a',{class:'mini',href:gcalUrl(m),target:'_blank'},'Google'));
+      acts.append(el('button',{class:'mini',onclick:()=>addToCalendar(m)},'.ics'));
     }
     acts.append(el('button',{class:'mini',onclick:()=>editMeeting(m)}, m.status==='held'?'View / edit notes':'Edit'));
   }
@@ -3626,10 +3634,10 @@ function editMeeting(m){
     if(f.summary){ m.summary=f.summary.get(); if(m.interactionId){ const arr=(m.interactionKind==='client')?STATE.clientInteractions:STATE.interactions; const rec=arr.find(x=>x.id===m.interactionId); if(rec)rec.summary=m.summary; } }
     if(isNew){ m.id=uid(); m.status='scheduled'; STATE.meetings.push(m); }
     else if(m.status==='scheduled'){ m.icsSeq=(m.icsSeq||0)+1; }
+    // hand a newly-scheduled future meeting to the calendar, in the same tap (so iOS allows the Google Calendar tab).
+    // Edits don't auto-fire (avoids repeats) — use the meeting's “📅 Add to calendar” button after a reschedule.
+    if(isNew && m.withId && !meetingPassed(m) && STATE.settings.autoCalendar!==false) sendToCalendar(m);
     queueSave();updateBadges();VIEWS.meetings();
-    // hand a newly-scheduled future meeting to the device calendar (one tap to confirm on iPhone).
-    // Edits don't auto-fire (avoids repeat downloads) — use the meeting's “📅 Add to calendar” button after a reschedule.
-    if(isNew && m.withId && !meetingPassed(m) && STATE.settings.autoCalendar!==false) addToCalendar(m);
   },'Save', isNew?undefined:()=>deleteMeeting(m));
 }
 function deleteMeeting(m){ if(!confirm('Delete this meeting?'+(m.status==='held'?' (The logged interaction in the contact’s history will remain.)':'')))return; STATE.meetings=STATE.meetings.filter(x=>x.id!==m.id); queueSave();updateBadges();closeModal();VIEWS.meetings(); }
@@ -3665,7 +3673,7 @@ function todayMeetingsCard(){
       el('div',{class:'d'},niceMeetingWhen(m)+' · '+(m.mode||'')),
       el('div',{class:'act'},
         (m.mode==='Virtual'&&m.location)?el('a',{class:'mini',href:m.location,target:'_blank'},'Join'):null,
-        el('button',{class:'mini',onclick:()=>addToCalendar(m)},'📅 Add'),
+        el('button',{class:'mini',onclick:()=>sendToCalendar(m)},'📅 Add'),
         el('button',{class:'mini',onclick:()=>editMeeting(m)},'Edit'),
         el('button',{class:'mini',onclick:()=>go('meetings')},'Open')
       )
