@@ -2767,12 +2767,13 @@ function seed(){
     {id:uid(),destination:'Hong Kong',region:'Hong Kong',start:addDays(t,20),end:addDays(t,25),purpose:'Client + intermediary visits',meetingIds:[byOrg('HSBC').id,byOrg('Vistra').id],notes:'Line up dinners; combine with Vistra seminar prep'},
     {id:uid(),destination:'Zurich / Geneva',region:'Switzerland',start:addDays(t,48),end:addDays(t,53),purpose:'Build Swiss network',meetingIds:[byOrg('Pictet').id,byOrg('UBS').id,byOrg('Lombard').id],notes:'First Switzerland trip — introductions via UBS'},
   ];
-  const C=(o)=>Object.assign({id:uid(),active:true,notes:'',feeAnnual:0},o);
+  const C=(o)=>Object.assign({id:uid(),active:true,notes:'',feeAnnual:0,engagement:'Client'},o);
   const clients=[
     C({name:'Zhang Wei',                type:'Individual',                region:'Hong Kong',      services:'Self-assessment; FIG advisory',        serviceTypes:['Tax return','Tax advice'], sourceId:byOrg('HSBC').id,        owner:'You', tier:'A', email:'', feeAnnual:14000, lastContact:addDays(t,-58),
         filings:{'2025/26':{stages:{ utr:{done:true,date:addDays(t,-35),note:'UTR already held from prior year'}, reachedOut:{done:true,date:addDays(t,-12),note:'Emailed information request checklist'} }}}}),
     C({name:'Chen Family Investment Co',type:'Family investment company', region:'Singapore',      services:'FIC maintenance; corporate tax return',serviceTypes:['Tax return','Tax advice'], sourceId:byOrg('Bank of Sing').id,owner:'You', tier:'A', email:'', feeAnnual:32000, lastContact:addDays(t,-88)}),
     C({name:'Wong Family Trust',        type:'Trust',                     region:'Channel Islands',services:'Trust SA returns; IHT',                 serviceTypes:['Tax return'],              sourceId:byOrg('JTC').id,         owner:'You', tier:'B', email:'', feeAnnual:18000, lastContact:addDays(t,-20)}),
+    C({name:'Ng (prospective)',         type:'Individual',                region:'Hong Kong',      services:'Self-assessment (pending engagement)',  serviceTypes:['Tax return'], engagement:'Prospect', sourceId:byOrg('HSBC').id, owner:'You', tier:'B', email:'', feeAnnual:0, lastContact:addDays(t,-5)}),
   ];
   const cById=(nm)=>clients.find(c=>c.name.startsWith(nm))||clients[0];
   const clientInteractions=[
@@ -2915,7 +2916,7 @@ function ensureShape(){
   if(STATE.settings.taxYear==null) STATE.settings.taxYear='2025/26';
   if(STATE.settings.taxDeadline==null) STATE.settings.taxDeadline='2027-01-31';
   // Cleanup: auto-categorise each client's services into Tax return / Tax advice (only where not already set), and ensure a filings holder
-  STATE.clients.forEach(c=>{ if(!Array.isArray(c.serviceTypes)) c.serviceTypes=inferServiceTypes(c.services); if(!c.filings) c.filings={}; });
+  STATE.clients.forEach(c=>{ if(!Array.isArray(c.serviceTypes)) c.serviceTypes=inferServiceTypes(c.services); if(!c.filings) c.filings={}; if(c.engagement==null) c.engagement='Client'; });
 }
 function inferServiceTypes(text){
   const l=(text||'').toLowerCase(); const t=[];
@@ -3322,14 +3323,16 @@ function isSubmitted(c){ const f=c.filings&&c.filings[currentTaxYear()]; return 
 function currentStageLabel(c){ const f=c.filings&&c.filings[currentTaxYear()]; let last=null; if(f&&f.stages) TAX_STAGES.forEach(s=>{ if(f.stages[s.key]&&f.stages[s.key].done) last=s; }); return last?last.label:'Not started'; }
 function lastFilingDate(c){ const f=c.filings&&c.filings[currentTaxYear()]; let d=null; if(f&&f.stages) TAX_STAGES.forEach(s=>{ const st=f.stages[s.key]; if(st&&st.done&&st.date&&(!d||parse(st.date)>parse(d))) d=st.date; }); return d; }
 function taxReturnClients(){ return (STATE.clients||[]).filter(c=>c.active!==false && Array.isArray(c.serviceTypes) && c.serviceTypes.includes('Tax return')); }
-function taxOutstanding(){ return taxReturnClients().filter(c=>!isSubmitted(c)); }
+function engagedTaxClients(){ return taxReturnClients().filter(c=>c.engagement!=='Prospect'); }
+function prospectTaxClients(){ return taxReturnClients().filter(c=>c.engagement==='Prospect'); }
+function taxOutstanding(){ return engagedTaxClients().filter(c=>!isSubmitted(c)); }
 let taxFilter={status:''};
 VIEWS.taxreturns=()=>{
   const y=currentTaxYear(), dl=taxDeadlineDate(), days=daysBetween(today(),dl);
-  let clients=taxReturnClients().slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  let clients=engagedTaxClients().slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   const submitted=clients.filter(isSubmitted).length, notStarted=clients.filter(c=>stagesDone(c)===0).length;
   const kc=el('div',{class:'grid cols-4'},
-    kpi(clients.length,'Tax-return clients','for '+y),
+    kpi(clients.length,'Engaged clients','tracking for '+y),
     kpi(submitted+'/'+clients.length,'Submitted', clients.length?Math.round(100*submitted/clients.length)+'% complete':'—'),
     kpi(notStarted,'Not started','need first action'),
     kpi(days>=0?days+'d':'overdue','To deadline · '+niceDate(dl), days>=0?'until filing deadline':'past due')
@@ -3362,7 +3365,21 @@ VIEWS.taxreturns=()=>{
     });
     table.append(tb); card.append(table);
   }
-  render([kc,bar,card]);
+  // Prospects — not yet engaged: parked at the bottom, no action needed until they engage
+  const prospects=prospectTaxClients().slice().sort((a,b)=>a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const pcard=el('div',{class:'card',style:'opacity:.9'},el('h3',{},'Prospects — not yet engaged · '+prospects.length,el('span',{class:'sub'},' · no action needed until they engage')));
+  if(!prospects.length) pcard.append(el('div',{class:'empty'},'No prospects flagged. Set a client’s Engagement to “Prospect” (in the client editor) to park them here.'));
+  else prospects.forEach(c=>pcard.append(el('div',{class:'actionitem'},
+    el('div',{class:'dot'}),
+    el('div',{class:'body'},
+      el('div',{class:'t'},c.name,el('span',{class:'tag warn',style:'margin-left:6px;font-size:10px'},'prospect')),
+      el('div',{class:'d'},(c.type||'')+' · '+(c.region||'')+(c.services?(' · '+c.services):'')),
+      el('div',{class:'act'},
+        el('button',{class:'mini y',onclick:()=>{ if(confirm('Mark '+c.name+' as an engaged client? They will move up into your active tax-return tracking.')){ c.engagement='Client'; queueSave(); updateBadges(); VIEWS.taxreturns(); } }},'✓ Mark engaged'),
+        el('button',{class:'mini',onclick:()=>openTaxTracker(c)},'Open tracker'))
+    )
+  )));
+  render([kc,bar,card,pcard]);
 };
 function openTaxTracker(c){
   const f=filingFor(c,true); f.stages=f.stages||{};
@@ -3403,7 +3420,7 @@ function saveTaxTracker(c,refs){
   queueSave(); updateBadges(); closeModal(); go(CUR);
 }
 function todayTaxCard(){
-  const clients=taxReturnClients(); if(!clients.length) return null;
+  const clients=engagedTaxClients(); if(!clients.length) return null;
   const y=currentTaxYear(), dl=taxDeadlineDate(), days=daysBetween(today(),dl);
   const outstanding=clients.filter(c=>!isSubmitted(c));
   const attention=outstanding.filter(c=>stagesDone(c)===0 || (lastFilingDate(c)&&daysBetween(lastFilingDate(c),today())>30));
@@ -3578,7 +3595,7 @@ function deleteIntroducer(i){
    CLIENTS — your own client database & regular-interaction care
    ============================================================ */
 const CLIENT_TYPES=['Individual','Couple/Family','Trust','Company','Family investment company','Other'];
-let clientFilter={q:'',region:'',type:'',tier:'',owner:'',service:'',hideArchived:false}, clientSort={k:'name',dir:1};
+let clientFilter={q:'',region:'',type:'',tier:'',owner:'',service:'',engagement:'',hideArchived:false}, clientSort={k:'name',dir:1};
 function clientSvcCell(c){
   const td=el('td',{});
   if(c.serviceTypes&&c.serviceTypes.length){ c.serviceTypes.forEach(s=>td.append(el('span',{class:'tag '+(s==='Tax return'?'info':'good'),style:'margin:0 4px 3px 0;display:inline-block'},s))); }
@@ -3595,6 +3612,7 @@ VIEWS.clients=()=>{
     clSelect('region',REGIONS,'All regions'),
     clSelect('type',CLIENT_TYPES,'All types'),
     el('select',{onchange:e=>{clientFilter.service=e.target.value;renderClientTable();}}, el('option',{value:''},'All services'), ...SERVICE_TYPES.map(s=>el('option',{value:s,...(clientFilter.service===s?{selected:'1'}:{})},s))),
+    el('select',{onchange:e=>{clientFilter.engagement=e.target.value;renderClientTable();}}, el('option',{value:''},'Clients & prospects'), ...['Client','Prospect'].map(s=>el('option',{value:s,...(clientFilter.engagement===s?{selected:'1'}:{})},s+'s'))),
     clSelect('tier',['A','B','C'],'All tiers'),
     clSelect('owner',[...new Set(STATE.clients.map(c=>c.owner).filter(Boolean))],'All owners'),
     el('button',{class:'btn small'+(clientFilter.tier==='A'?'':' ghost'),onclick:()=>{clientFilter.tier=clientFilter.tier==='A'?'':'A';VIEWS.clients();}},'★ Tier A only'),
@@ -3621,6 +3639,7 @@ function renderClientTable(){
     if(clientFilter.tier&&c.tier!==clientFilter.tier)return false;
     if(clientFilter.owner&&c.owner!==clientFilter.owner)return false;
     if(clientFilter.service&&!(Array.isArray(c.serviceTypes)&&c.serviceTypes.includes(clientFilter.service)))return false;
+    if(clientFilter.engagement&&(c.engagement||'Client')!==clientFilter.engagement)return false;
     if(clientFilter.hideArchived&&c.active===false)return false;
     return true;
   }).map(c=>({c,due:nextDue(c)}));
@@ -3638,7 +3657,7 @@ function renderClientTable(){
   rows.forEach(({c,due})=>{
     const src=c.sourceId?introById(c.sourceId):null; const archived=c.active===false;
     tb.append(el('tr',{style:archived?'opacity:.5':''},
-      el('td',{},el('div',{style:'font-weight:600'},c.name),el('div',{class:'sub'},c.email||'')),
+      el('td',{},el('div',{style:'font-weight:600'},c.name, c.engagement==='Prospect'?el('span',{class:'tag warn',style:'margin-left:6px;font-size:10px'},'prospect'):null),el('div',{class:'sub'},c.email||'')),
       el('td',{},c.type||'—',el('div',{class:'sub'},c.region||'')),
       clientSvcCell(c),
       el('td',{},src?src.org:'—',src?el('div',{class:'sub'},src.name):null),
@@ -3675,17 +3694,18 @@ function editClient(c){
     fee:inp('Annual fee (£, optional)',c.feeAnnual,{type:'number'}),
     last:inp('Last contact date',c.lastContact,{type:'date'}),
     cad:inp('Catch-up cadence (days) — preset by tier',c.cadenceDays,{type:'number'}),
+    engagement:sel('Engagement',c.engagement||'Client',['Client','Prospect']),
     status:sel('Status',c.active===false?'Archived':'Active',['Active','Archived']),
     notes:area('Notes',c.notes)
   };
   if(isNew || c.cadenceDays==null) f.cad.el.value=tierDefault(f.tier.el.value);
   f.tier.el.addEventListener('change',()=>{ f.cad.el.value=tierDefault(f.tier.el.value); });
-  const grid=el('div',{class:'formgrid'},f.name.node,f.type.node,f.region.node,f.tier.node,svcField,f.detail.node,picker.field,f.owner.node,f.email.node,f.fee.node,f.last.node,f.cad.node,f.status.node,f.notes.node,picker.niBox);
+  const grid=el('div',{class:'formgrid'},f.name.node,f.type.node,f.region.node,f.tier.node,svcField,f.detail.node,picker.field,f.owner.node,f.email.node,f.fee.node,f.last.node,f.cad.node,f.engagement.node,f.status.node,f.notes.node,picker.niBox);
   openModal(isNew?'Add client':'Edit client',grid,()=>{
     const src=picker.resolve();
     const cadVal=+f.cad.get(), td=tierDefault(f.tier.get());
     const serviceTypes=[...(svc.tr.checked?['Tax return']:[]),...(svc.ta.checked?['Tax advice']:[])];
-    Object.assign(c,{name:f.name.get(),type:f.type.get(),region:f.region.get(),tier:f.tier.get(),serviceTypes,services:f.detail.get(),sourceId:src?src.id:null,owner:f.owner.get(),email:f.email.get(),feeAnnual:+f.fee.get()||0,lastContact:f.last.get()||null,cadenceDays:(cadVal&&cadVal!==td)?cadVal:undefined,active:f.status.get()==='Active',notes:f.notes.get()});
+    Object.assign(c,{name:f.name.get(),type:f.type.get(),region:f.region.get(),tier:f.tier.get(),serviceTypes,services:f.detail.get(),sourceId:src?src.id:null,owner:f.owner.get(),email:f.email.get(),feeAnnual:+f.fee.get()||0,lastContact:f.last.get()||null,cadenceDays:(cadVal&&cadVal!==td)?cadVal:undefined,engagement:f.engagement.get(),active:f.status.get()==='Active',notes:f.notes.get()});
     if(isNew){c.id=uid();STATE.clients.push(c);}
     queueSave();updateBadges();VIEWS.clients();
   },'Save', isNew?undefined:()=>deleteClient(c));
