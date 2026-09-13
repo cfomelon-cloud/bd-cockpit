@@ -1,4 +1,5 @@
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://api.github.com; img-src 'self' data: blob:; font-src 'self'; base-uri 'none'; form-action 'none'" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Private Capital · BD Cockpit</title>
 <!--
@@ -201,6 +202,10 @@
       <div class="field">
         <label id="pcLabel">Create passcode</label>
         <input id="pc1" type="password" autocomplete="new-password" placeholder="Enter passcode" />
+      </div>
+      <div id="pwMeter" class="hidden" style="margin:-4px 0 12px">
+        <div style="height:6px;background:var(--ink-2);border-radius:20px;overflow:hidden"><i id="pwBar" style="display:block;height:100%;width:0;background:var(--bad);transition:width .2s,background .2s"></i></div>
+        <div id="pwLabel" style="font-size:11.5px;color:var(--muted);margin-top:5px"></div>
       </div>
       <div class="field" id="pc2wrap">
         <label>Confirm passcode</label>
@@ -2584,6 +2589,11 @@ var qrcode = function() {
 
 </script>
 <script>
+/* @noble/hashes Argon2id (audited, MIT) — bundled & verified byte-for-byte vs hash-wasm. Exposes PCArgon2.argon2id. Do not edit. */
+(()=>{var Et=Object.defineProperty;var kt=(t,e,n)=>e in t?Et(t,e,{enumerable:!0,configurable:!0,writable:!0,value:n}):t[e]=n;var m=(t,e,n)=>kt(t,typeof e!="symbol"?e+"":e,n);function it(t){return t instanceof Uint8Array||ArrayBuffer.isView(t)&&t.constructor.name==="Uint8Array"&&"BYTES_PER_ELEMENT"in t&&t.BYTES_PER_ELEMENT===1}var Z=t=>t?`"${t}" `:"";function G(t,e=""){if(typeof t!="number")throw new TypeError(Z(e)+"expected number, got "+typeof t);if(!Number.isSafeInteger(t)||t<0)throw new RangeError(Z(e)+"expected integer >= 0, got "+t);return t}function M(t,e,n=""){if(it(t)&&(e===void 0||t.length===e))return t;e!==void 0&&G(e,"length");let o=it(t),i=e!==void 0?` of length ${e}`:"",r=o?`length=${t.length}`:`type=${typeof t}`,f=Z(n)+"expected Uint8Array"+i+", got "+r;throw o?new RangeError(f):new TypeError(f)}function q(t){return Uint8Array.from(M(t))}var Bt=(t,e)=>{if(t===null||typeof t!="object"||Array.isArray(t))throw new TypeError((e==="object"?"":`"${e}" `)+"expected object, got type="+typeof t)},st=(t,e)=>{Bt(t,e);let n=Object.getPrototypeOf(t);if(n!==Object.prototype&&n!==null)throw new TypeError(`"${e}" expected plain object`);if(Object.hasOwn(t,"__proto__"))throw new TypeError(`"${e}.__proto__" is not allowed`)};function J(t,e=!0){if(t.destroyed)throw new Error("hash was destroyed");if(e&&t.finished)throw new Error("digest() was already called")}function ct(t,e){M(t,void 0,"output");let n=e.outputLen;if(!(t.length>=n))throw new RangeError('"output" expected length >= '+n)}function V(t){return new Uint8Array(t.buffer,t.byteOffset,t.byteLength)}function j(t){return new Uint32Array(t.buffer,t.byteOffset,Math.floor(t.byteLength/4))}function O(...t){for(let e=0;e<t.length;e++)t[e].fill(0)}var ft=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;function lt(t){return t<<24&4278190080|t<<8&16711680|t>>>8&65280|t>>>24&255}var U=ft?t=>t:t=>lt(t)>>>0;function Ut(t){for(let e=0;e<t.length;e++)t[e]=lt(t[e]);return t}var _=ft?t=>t:Ut;function Lt(t){if(typeof t!="string")throw new TypeError("string expected");let e=new TextEncoder().encode(t);try{return new Uint8Array(e)}finally{O(e)}}function v(t,e=""){return typeof t=="string"?Lt(t):M(t,void 0,e)}function z(t,e,n="opts"){return st(t,"defaults"),e!==void 0&&st(e,n),Object.assign(Object.create(null),t,e)}function ht(t,e={}){if(typeof t!="function")throw new TypeError('"hashCons" expected function, got type='+typeof t);e=z({},e,"info");let n=(i,r)=>t(r).update(i).digest(),o=t(void 0);return n.outputLen=o.outputLen,n.blockLen=o.blockLen,n.canXOF=o.canXOF,n.create=i=>t(i),Object.assign(n,e),Object.freeze(n)}var ut=Uint8Array.from([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4,7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8,9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13,2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9,12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11,13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10,6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5,10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4,7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8,9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13,2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9]);var at=t=>t/2**32|0,pt=t=>t>>>0;var Q=(t,e,n)=>t>>>n|e<<32-n,W=(t,e,n)=>t<<32-n|e>>>n,dt=(t,e,n)=>t<<64-n|e>>>n-32,yt=(t,e,n)=>t>>>n-32|e<<64-n,wt=(t,e)=>e,xt=(t,e)=>t;function K(t,e,n,o){let i=(e>>>0)+(o>>>0);return{h:t+n+(i/2**32|0)|0,l:i|0}}var tt=(t,e,n)=>(t>>>0)+(e>>>0)+(n>>>0),et=(t,e,n,o)=>e+n+o+(t/2**32|0)|0;var B=Uint32Array.from([4089235720,1779033703,2227873595,3144134277,4271175723,1013904242,1595750129,2773480762,2917565137,1359893119,725511199,2600822924,4215389547,528734635,327033209,1541459225]),s=new Uint32Array(32);function N(t,e,n,o,i,r){let f=i[r],l=i[r+1],c=s[2*t],a=s[2*t+1],h=s[2*e],d=s[2*e+1],u=s[2*n],w=s[2*n+1],p=s[2*o],y=s[2*o+1],x=tt(c,h,f);a=et(x,a,d,l),c=x|0;let b=y^a,g=p^c;y=wt(b,g),p=xt(b,g),{h:w,l:u}=K(w,u,y,p),b=d^w,g=h^u,d=Q(b,g,24),h=W(b,g,24),s[2*t]=c,s[2*t+1]=a,s[2*e]=h,s[2*e+1]=d,s[2*n]=u,s[2*n+1]=w,s[2*o]=p,s[2*o+1]=y}function R(t,e,n,o,i,r){let f=i[r],l=i[r+1],c=s[2*t],a=s[2*t+1],h=s[2*e],d=s[2*e+1],u=s[2*n],w=s[2*n+1],p=s[2*o],y=s[2*o+1],x=tt(c,h,f);a=et(x,a,d,l),c=x|0;let b=y^a,g=p^c;y=Q(b,g,16),p=W(b,g,16),{h:w,l:u}=K(w,u,y,p),b=d^w,g=h^u,d=dt(b,g,63),h=yt(b,g,63),s[2*t]=c,s[2*t+1]=a,s[2*e]=h,s[2*e+1]=d,s[2*n]=u,s[2*n+1]=w,s[2*o]=p,s[2*o+1]=y}function Ot(t,e={},n,o,i){if(G(n),t<=0||t>n)throw new Error('"dkLen" must be 1..'+n+", got "+t);let{key:r,salt:f,personalization:l}=e;if(r!==void 0&&(r.length<1||r.length>n))throw new Error('"key" expected to be undefined or of length=1..'+n);f!==void 0&&M(f,o,"salt"),l!==void 0&&M(l,i,"personalization")}var nt=class{constructor(e,n){m(this,"buffer");m(this,"buffer32");m(this,"finished",!1);m(this,"destroyed",!1);m(this,"length",0);m(this,"pos",0);m(this,"blockLen");m(this,"outputLen");m(this,"canXOF",!1);G(e),G(n),this.blockLen=e,this.outputLen=n,this.buffer=new Uint8Array(e),this.buffer32=j(this.buffer)}update(e){J(this),M(e);let{blockLen:n,buffer:o,buffer32:i}=this,r=e.length,f=e.byteOffset,l=e.buffer;for(let c=0;c<r;){this.pos===n&&(_(i),this.compress(i,0,!1),_(i),this.pos=0);let a=Math.min(n-this.pos,r-c),h=f+c;if(a===n&&!(h%4)&&c+a<r){let d=new Uint32Array(l,h,Math.floor((r-c)/4));_(d);for(let u=0;c+n<r;u+=i.length,c+=n)this.length+=n,this.compress(d,u,!1);_(d);continue}o.set(c===0&&a===r?e:e.subarray(c,c+a),this.pos),this.pos+=a,this.length+=a,c+=a}return this}digestInto(e){if(J(this),ct(e,this),e.byteOffset&3)throw new RangeError('"output" expected 4-byte aligned byteOffset, got '+e.byteOffset);let{pos:n,buffer32:o}=this;this.finished=!0,this.buffer.fill(0,n),_(o),this.compress(o,0,!0),_(o);let i=this.get(),r=e===this.buffer?o:j(e),f=Math.floor(this.outputLen/4);for(let h=0;h<f;h++)r[h]=U(i[h]);let l=this.outputLen%4;if(!l)return;let c=f*4,a=i[f];for(let h=0;h<l;h++)e[c+h]=a>>>8*h}digest(){let{buffer:e,outputLen:n}=this;this.digestInto(e);let o=e.slice(0,n);return this.destroy(),o}_cloneInto(e){let{buffer:n,length:o,finished:i,destroyed:r,outputLen:f,pos:l}=this;return e||(e=new this.constructor({dkLen:f})),e.set(...this.get()),e.buffer.set(n),e.destroyed=r,e.finished=i,e.length=o,e.pos=l,e.outputLen=f,e}clone(){return this._cloneInto()}},rt=class extends nt{constructor(n={}){n=z({},n);let o=n.dkLen===void 0?64:n.dkLen;super(128,o);m(this,"v0l",B[0]|0);m(this,"v0h",B[1]|0);m(this,"v1l",B[2]|0);m(this,"v1h",B[3]|0);m(this,"v2l",B[4]|0);m(this,"v2h",B[5]|0);m(this,"v3l",B[6]|0);m(this,"v3h",B[7]|0);m(this,"v4l",B[8]|0);m(this,"v4h",B[9]|0);m(this,"v5l",B[10]|0);m(this,"v5h",B[11]|0);m(this,"v6l",B[12]|0);m(this,"v6h",B[13]|0);m(this,"v7l",B[14]|0);m(this,"v7h",B[15]|0);Ot(o,n,64,16,16);let{key:i,personalization:r,salt:f}=n,l=0;if(i!==void 0&&(M(i,void 0,"key"),l=i.length),this.v0l^=this.outputLen|l<<8|65536|1<<24,f!==void 0){M(f,void 0,"salt");let c=j(q(f));this.v4l^=U(c[0]),this.v4h^=U(c[1]),this.v5l^=U(c[2]),this.v5h^=U(c[3])}if(r!==void 0){M(r,void 0,"personalization");let c=j(q(r));this.v6l^=U(c[0]),this.v6h^=U(c[1]),this.v7l^=U(c[2]),this.v7h^=U(c[3])}if(i!==void 0){let c=new Uint8Array(this.blockLen);c.set(i),this.update(c),O(c)}}get(){let{v0l:n,v0h:o,v1l:i,v1h:r,v2l:f,v2h:l,v3l:c,v3h:a,v4l:h,v4h:d,v5l:u,v5h:w,v6l:p,v6h:y,v7l:x,v7h:b}=this;return[n,o,i,r,f,l,c,a,h,d,u,w,p,y,x,b]}set(n,o,i,r,f,l,c,a,h,d,u,w,p,y,x,b){this.v0l=n|0,this.v0h=o|0,this.v1l=i|0,this.v1h=r|0,this.v2l=f|0,this.v2h=l|0,this.v3l=c|0,this.v3h=a|0,this.v4l=h|0,this.v4h=d|0,this.v5l=u|0,this.v5h=w|0,this.v6l=p|0,this.v6h=y|0,this.v7l=x|0,this.v7h=b|0}compress(n,o,i){let{v0l:r,v0h:f,v1l:l,v1h:c,v2l:a,v2h:h,v3l:d,v3h:u,v4l:w,v4h:p,v5l:y,v5h:x,v6l:b,v6h:g,v7l:T,v7h:L}=this;s[0]=r,s[1]=f,s[2]=l,s[3]=c,s[4]=a,s[5]=h,s[6]=d,s[7]=u,s[8]=w,s[9]=p,s[10]=y,s[11]=x,s[12]=b,s[13]=g,s[14]=T,s[15]=L,s.set(B,16);let H=pt(this.length),I=at(this.length);s[24]=B[8]^H,s[25]=B[9]^I,i&&(s[28]=~s[28],s[29]=~s[29]);let A=0,E=ut;for(let S=0;S<12;S++)N(0,4,8,12,n,o+2*E[A++]),R(0,4,8,12,n,o+2*E[A++]),N(1,5,9,13,n,o+2*E[A++]),R(1,5,9,13,n,o+2*E[A++]),N(2,6,10,14,n,o+2*E[A++]),R(2,6,10,14,n,o+2*E[A++]),N(3,7,11,15,n,o+2*E[A++]),R(3,7,11,15,n,o+2*E[A++]),N(0,5,10,15,n,o+2*E[A++]),R(0,5,10,15,n,o+2*E[A++]),N(1,6,11,12,n,o+2*E[A++]),R(1,6,11,12,n,o+2*E[A++]),N(2,7,8,13,n,o+2*E[A++]),R(2,7,8,13,n,o+2*E[A++]),N(3,4,9,14,n,o+2*E[A++]),R(3,4,9,14,n,o+2*E[A++]);this.v0l^=s[0]^s[16],this.v0h^=s[1]^s[17],this.v1l^=s[2]^s[18],this.v1h^=s[3]^s[19],this.v2l^=s[4]^s[20],this.v2h^=s[5]^s[21],this.v3l^=s[6]^s[22],this.v3h^=s[7]^s[23],this.v4l^=s[8]^s[24],this.v4h^=s[9]^s[25],this.v5l^=s[10]^s[26],this.v5h^=s[11]^s[27],this.v6l^=s[12]^s[28],this.v6h^=s[13]^s[29],this.v7l^=s[14]^s[30],this.v7h^=s[15]^s[31],O(s)}destroy(){this.destroyed=!0,O(this.buffer32),this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)}},F=ht(t=>new rt(t));var Y={Argon2d:0,Argon2i:1,Argon2id:2},X=4,bt=(t,e="")=>t===void 0?Uint8Array.of():v(t,e),k=new Uint32Array(256);function D(t,e,n,o){let i=k[2*t],r=k[2*t+1],f=k[2*e],l=k[2*e+1],c=k[2*n],a=k[2*n+1],h=k[2*o],d=k[2*o+1],u=0,w=0,p=0,y=0,x=0;u=Math.imul(i,f),w=((i>>>0)*(f>>>0)-(u>>>0))/4294967296+.5|0,p=(i>>>0)+(f>>>0)+(u<<1>>>0),r=r+l+(w<<1|u>>>31)+(p/4294967296|0)|0,i=p|0,y=d^r,x=h^i,d=x,h=y,u=Math.imul(c,h),w=((c>>>0)*(h>>>0)-(u>>>0))/4294967296+.5|0,p=(c>>>0)+(h>>>0)+(u<<1>>>0),a=a+d+(w<<1|u>>>31)+(p/4294967296|0)|0,c=p|0,y=l^a,x=f^c,l=y>>>24|x<<8,f=y<<8|x>>>24,u=Math.imul(i,f),w=((i>>>0)*(f>>>0)-(u>>>0))/4294967296+.5|0,p=(i>>>0)+(f>>>0)+(u<<1>>>0),r=r+l+(w<<1|u>>>31)+(p/4294967296|0)|0,i=p|0,y=d^r,x=h^i,d=y>>>16|x<<16,h=y<<16|x>>>16,u=Math.imul(c,h),w=((c>>>0)*(h>>>0)-(u>>>0))/4294967296+.5|0,p=(c>>>0)+(h>>>0)+(u<<1>>>0),a=a+d+(w<<1|u>>>31)+(p/4294967296|0)|0,c=p|0,y=l^a,x=f^c,l=y<<1|x>>>31,f=y>>>31|x<<1,k[2*t]=i,k[2*t+1]=r,k[2*e]=f,k[2*e+1]=l,k[2*n]=c,k[2*n+1]=a,k[2*o]=h,k[2*o+1]=d}function gt(t,e,n,o,i,r,f,l,c,a,h,d,u,w,p,y){D(t,i,c,u),D(e,r,a,w),D(n,f,h,p),D(o,l,d,y),D(t,r,h,y),D(e,f,d,u),D(n,l,c,w),D(o,i,a,p)}function C(t,e,n,o,i){if(i)for(let r=0;r<256;r++){let f=t[e+r]^t[n+r];k[r]=f,t[o+r]^=f}else for(let r=0;r<256;r++){let f=t[e+r]^t[n+r];k[r]=f,t[o+r]=f}for(let r=0;r<128;r+=16)gt(r,r+1,r+2,r+3,r+4,r+5,r+6,r+7,r+8,r+9,r+10,r+11,r+12,r+13,r+14,r+15);for(let r=0;r<16;r+=2)gt(r,r+1,r+16,r+17,r+32,r+33,r+48,r+49,r+64,r+65,r+80,r+81,r+96,r+97,r+112,r+113);for(let r=0;r<256;r++)t[o+r]^=k[r];O(k)}function ot(t,e){let n=V(t),o=new Uint32Array(1),i=V(o);if(o[0]=U(e),e<=64)return F.create({dkLen:e}).update(i).update(n).digest();let r=new Uint8Array(e),f=F.create({}).update(i).update(n).digest(),l=0;for(r.set(f.subarray(0,32)),l+=32;e-l>64;l+=32){let c=F.create({}).update(f);c.digestInto(f),c.destroy(),r.set(f.subarray(0,32),l)}return r.set(F(f,{dkLen:e-l}),l),O(f,o),r}function Ht(t,e,n,o,i,r,f=!1){let l;t===0?e===0?l=i-1:f?l=e*o+i-1:l=e*o+(i==0?-1:0):f?l=n-o+i-1:l=n-o+(i==0?-1:0);let c=t!==0&&e!==X-1?(e+1)*o:0,a=Math.imul(r,r),h=((r>>>0)*(r>>>0)-(a>>>0))/4294967296+.5|0,d=Math.imul(l,h),u=((l>>>0)*(h>>>0)-(d>>>0))/4294967296+.5|0,w=l-1-u;return(c+w)%n}var It=Math.pow(2,32),mt=1024**2,_t=mt*1024;function $(t){return Number.isSafeInteger(t)&&t>=0&&t<It}function Mt(t={}){t=z({},t);let e={t:3,m:mt,p:1,version:19,dkLen:32,maxmem:_t,asyncTick:10};for(let[a,h]of Object.entries(t))h!==void 0&&(e[a]=h);let{dkLen:n,p:o,m:i,t:r,version:f,onProgress:l,asyncTick:c}=e;if(!$(n)||n<4)throw new Error('"dkLen" must be 4..');if(!$(o)||o<1||o>=Math.pow(2,24))throw new Error('"p" must be 1..2^24');if(!$(i))throw new Error('"m" must be 0..2^32');if(!$(r)||r<1)throw new Error('"t" (iterations) must be 1..2^32');if(l!==void 0&&typeof l!="function")throw new Error('"onProgress" must be a function');if(G(c,"asyncTick"),!$(i)||i<8*o)throw new Error('"m" (memory) must be at least 8*p bytes');if(f!==16&&f!==19)throw new Error('"version" must be 0x10 or 0x13, got '+f);return e}function St(t,e,n,o){let i=[],r=new Uint32Array(1),f=V(r),l,c,a=!1,h=(d,u)=>(typeof d=="string"&&i.push(u),u);try{let d=h(t,v(t,"password")),u=h(e,v(e,"salt"));if(!$(d.length))throw new Error('"password" must be less of length 1..4Gb');if(!$(u.length)||u.length<8)throw new Error('"salt" must be of length 8..4Gb');if(!Object.values(Y).includes(n))throw new Error('"type" was invalid');let{p:w,dkLen:p,m:y,t:x,version:b,key:g,personalization:T,maxmem:L,onProgress:H,asyncTick:I}=Mt(o),A=g;g=h(A,bt(A,"key"));let E=T;T=h(E,bt(E,"personalization")),l=F.create();for(let S of[w,p,y,x,b,n])r[0]=U(S),l.update(f);for(let S of[d,u,g,T])r[0]=U(S.length),l.update(f).update(S);return c=new Uint32Array(18),l.digestInto(V(c)),a=!0,{H0:c,p:w,dkLen:p,m:y,t:x,version:b,maxmem:L,onProgress:H,asyncTick:I}}finally{l&&l.destroy(),O(r,...i),!a&&c&&O(c)}}function jt(t,e,n,o){let{H0:i,p:r,dkLen:f,m:l,t:c,version:a,maxmem:h,onProgress:d,asyncTick:u}=St(t,e,n,o);try{let w=r,p=4*r*Math.floor(l/(X*r)),y=Math.floor(p/r),x=Math.floor(y/X),b=p*1024;if(!$(h))throw new Error('"maxmem" expected <2**32, got '+h);if(b>h)throw new Error('"maxmem" limit was hit: memUsed(mP*1024)='+b+", maxmem="+h);let g=new Uint32Array(b/4);for(let L=0;L<r;L++){let H=256*y*L;i[17]=U(L),i[16]=U(0),g.set(_(j(ot(i,1024))),H),i[16]=U(1),g.set(_(j(ot(i,1024))),H+256)}let T=()=>{};if(d){let L=c*X*r*x-2*r,H=Math.max(Math.floor(L/1e4),1),I=0;T=()=>{I++,d&&(!(I%H)||I===L)&&d(I/L)}}return{type:n,mP:p,p:r,t:c,version:a,B:g,laneLen:y,lanes:w,segmentLen:x,dkLen:f,perBlock:T,asyncTick:u}}finally{O(i)}}function Nt(t,e,n,o){let i=new Uint32Array(256);for(let f=0;f<e;f++)for(let l=0;l<256;l++)i[l]^=t[256*(n*f+n-1)+l];let r=ot(_(i),o);return O(t,i),r}function*Rt(t,e){let{type:n,mP:o,p:i,t:r,version:f,B:l,laneLen:c,lanes:a,segmentLen:h,perBlock:d}=t;e[262]=o,e[264]=r,e[266]=n;for(let u=0;u<r;u++){let w=u!==0&&f===19;e[256]=u;for(let p=0;p<X;p++){e[260]=p;let y=n==Y.Argon2i||n==Y.Argon2id&&u===0&&p<2;for(let x=0;x<i;x++){e[258]=x,e[268]=0;let b=0;u===0&&p===0&&(b=2,y&&(e[268]++,C(e,256,2*256,0,!1),C(e,0,2*256,0,!1)));let g=x*c+p*h+b;for(let T=b;T<h;T++,g++){d();let L=g%c?g-1:g+c-1,H,I;if(y){let P=T%128;P===0&&(e[268]++,C(e,256,2*256,0,!1),C(e,0,2*256,0,!1)),H=e[2*P],I=e[2*P+1]}else{let P=256*L;H=l[P],I=l[P+1]}let A=u===0&&p===0?x:I%a,E=Ht(u,p,c,h,T,H,A==x),S=c*A+E;C(l,256*L,256*S,g*256,w),yield}}}}O(e)}function Dt(t,e,n,o){let i=jt(e,n,t,o),r=Rt(i,new Uint32Array(3*256));for(;!r.next().done;);return Nt(i.B,i.p,i.laneLen,i.dkLen)}var At=(t,e,n={})=>Dt(Y.Argon2id,t,e,n);globalThis.PCArgon2={argon2id:At};})();
+
+</script>
+<script>
 /* ============================================================
    0. Small helpers
    ============================================================ */
@@ -2612,11 +2622,69 @@ function relDays(s){ const n=daysBetween(today(),s); if(n===0)return 'today'; if
 const LS_KEY='pc_bd_vault_v1';
 let CRYPTO_KEY=null, PASSCODE=null;
 const enc=new TextEncoder(), dec=new TextDecoder();
-async function deriveKey(pass,saltB64){
-  const salt=saltB64?Uint8Array.from(atob(saltB64),c=>c.charCodeAt(0)):crypto.getRandomValues(new Uint8Array(16));
-  const base=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
-  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:210000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-  return {key,salt:btoa(String.fromCharCode(...salt))};
+// Key-strengthening: Argon2id (memory-hard, gold standard). 46 MiB, 3 passes, 1 lane.
+const ARGON={m:47104,t:3,p:1};
+function bytesFromB64(b64){ return Uint8Array.from(atob(b64),c=>c.charCodeAt(0)); }
+function b64FromBytes(u){ let s=''; for(let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return btoa(s); }
+function newArgonKdf(){ return {algo:'argon2id', m:ARGON.m, t:ARGON.t, p:ARGON.p, salt:b64FromBytes(crypto.getRandomValues(new Uint8Array(16)))}; }
+// Legacy vaults stored a top-level salt and used PBKDF2 — describe that so they still open.
+function kdfFromBlob(blob){ return blob.kdf || {algo:'pbkdf2', hash:'SHA-256', iterations:210000, salt:blob.salt}; }
+async function deriveKeyFor(pass, kdf){
+  const salt=bytesFromB64(kdf.salt);
+  if(kdf.algo==='argon2id'){
+    const raw=PCArgon2.argon2id(enc.encode(pass), salt, {t:kdf.t, m:kdf.m, p:kdf.p, dkLen:32});
+    return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+  }
+  const base=await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:kdf.iterations||210000, hash:kdf.hash||'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+// After opening a legacy (PBKDF2) vault, transparently re-encrypt it under Argon2id with the same passcode.
+async function upgradeKdfIfNeeded(){ if(!VAULT_KDF || VAULT_KDF.algo!=='argon2id'){ VAULT_KDF=newArgonKdf(); CRYPTO_KEY=await deriveKeyFor(PASSCODE, VAULT_KDF); await save(); } }
+async function busyUnlock(fn){
+  const b=document.getElementById('unlockBtn'); const old=b?b.textContent:''; if(b){b.textContent='Unlocking…';b.disabled=true;}
+  await new Promise(r=>setTimeout(r,25));   // let the label paint before the ~1s Argon2 hash
+  try{ await fn(); } finally { if(b){b.textContent=old;b.disabled=false;} }
+}
+/* Passphrase strength (rough entropy estimate) — gates weak passphrases and drives the meter */
+const MIN_PW_BITS=50;
+function pwStrength(pw){
+  pw=pw||'';
+  let pool=0;
+  if(/[a-z]/.test(pw))pool+=26;
+  if(/[A-Z]/.test(pw))pool+=26;
+  if(/[0-9]/.test(pw))pool+=10;
+  if(/[^a-zA-Z0-9]/.test(pw))pool+=33;
+  const uniq=new Set(pw).size;
+  const effLen=pw.length?Math.min(pw.length, uniq+Math.floor((pw.length-uniq)/2)):0; // discount heavy repetition
+  const bits=pool?Math.round(effLen*Math.log2(pool)):0;
+  let label='Very weak', cls='bad';
+  if(bits>=90){label='Strong';cls='good';}
+  else if(bits>=65){label='Good';cls='good';}
+  else if(bits>=MIN_PW_BITS){label='Fair';cls='warn';}
+  else if(bits>=30){label='Weak';cls='bad';}
+  return {bits,label,cls,pct:Math.max(3,Math.min(100,Math.round(bits/120*100)))};
+}
+function updatePwMeter(){
+  const meter=document.getElementById('pwMeter'); if(!meter)return;
+  if(existingBlob()){ meter.classList.add('hidden'); return; }
+  meter.classList.remove('hidden');
+  const val=(document.getElementById('pc1')||{}).value||'';
+  const s=pwStrength(val);
+  const bar=document.getElementById('pwBar');
+  bar.style.width=s.pct+'%';
+  bar.style.background = s.cls==='good'?'var(--good)':s.cls==='warn'?'var(--warn)':'var(--bad)';
+  document.getElementById('pwLabel').textContent = val ? (s.label+' · ~'+s.bits+' bits'+(s.bits<MIN_PW_BITS?' — too weak':'')) : 'Tip: 4+ random words make a strong, memorable passphrase.';
+}
+/* Auto-lock: lock on inactivity and when the app is backgrounded past the timeout */
+let idleTimer=null, hiddenAt=0;
+function autoLockMs(){ const m=(STATE&&STATE.settings&&STATE.settings.autoLockMin)||10; return Math.max(1,m)*60000; }
+function resetIdle(){ if(!STATE)return; clearTimeout(idleTimer); idleTimer=setTimeout(()=>{ if(STATE) lockNow(); }, autoLockMs()); }
+function initAutoLock(){
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(ev=>document.addEventListener(ev,()=>{ if(STATE) resetIdle(); },{passive:true}));
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){ hiddenAt=Date.now(); }
+    else if(STATE){ if(hiddenAt && (Date.now()-hiddenAt)>autoLockMs()) lockNow(); else resetIdle(); }
+  });
 }
 async function encryptState(obj){
   const iv=crypto.getRandomValues(new Uint8Array(12));
@@ -2634,11 +2702,11 @@ async function decryptState(pkg,key){
 /* ============================================================
    2. State + persistence
    ============================================================ */
-let STATE=null, VAULT_SALT=null;
+let STATE=null, VAULT_KDF=null;
 async function save(){
   STATE.updatedAt=(STATE.updatedAt||0)+1;
   const pkg=await encryptState(STATE);
-  const blob={v:1,salt:VAULT_SALT,updatedAt:STATE.updatedAt,...pkg};
+  const blob={v:2,kdf:VAULT_KDF,updatedAt:STATE.updatedAt,...pkg};
   localStorage.setItem(LS_KEY,JSON.stringify(blob));
   flashSaved();
   if(STATE.settings && STATE.settings.sync && STATE.settings.sync.enabled) queueSyncPush();
@@ -2716,7 +2784,7 @@ function seed(){
   return {
     updatedAt:0,
     settings:{userName:'You',cadenceA:15,cadenceB:30,cadenceC:60,cadenceVersion:2,created:t,
-              inviteEmail:'',autoCalendar:true,
+              inviteEmail:'',autoCalendar:true,autoLockMin:10,
               sync:{enabled:false,token:'',gistId:'',filename:'pc-bd-vault.json'}},
     introducers,interactions,prospects,events,knowledge,travel,clients,clientInteractions,meetings,
     log:[] // completed action log
@@ -2836,6 +2904,7 @@ function ensureShape(){
   if(!STATE.settings.cadenceVersion){ STATE.settings.cadenceA=15; STATE.settings.cadenceB=30; STATE.settings.cadenceC=60; STATE.settings.cadenceVersion=2; }
   if(STATE.settings.inviteEmail==null) STATE.settings.inviteEmail='';
   if(STATE.settings.autoCalendar==null) STATE.settings.autoCalendar=true;
+  if(STATE.settings.autoLockMin==null) STATE.settings.autoLockMin=10;
 }
 function go(view){
   ensureShape();
@@ -3216,8 +3285,10 @@ VIEWS.devs=()=>{
 /* ---------- SETTINGS ---------- */
 VIEWS.settings=()=>{
   const s=STATE.settings;
-  const box=el('div',{class:'card'},el('h3',{},'Profile & tier cadence'),
+  const box=el('div',{class:'card'},el('h3',{},'Profile, security & tier cadence'),
     field2('Your name',el('input',{value:s.userName,onchange:e=>{s.userName=e.target.value;$('#whoami').textContent=e.target.value+' · Private Capital';queueSave();}})),
+    field2('Auto-lock after (minutes idle)',el('input',{type:'number',min:'1',value:s.autoLockMin||10,onchange:e=>{s.autoLockMin=Math.max(1,+e.target.value||10);queueSave();resetIdle();}})),
+    el('div',{class:'hint',style:'margin:-6px 0 10px'},'The app locks itself after this many minutes of inactivity, and when it’s backgrounded for that long — protecting an unattended or lost device. Your data is encrypted with Argon2id + AES-256.'),
     el('p',{class:'sub',style:'margin:2px 0 10px'},'How often to catch up, by priority tier — applies to both introducers and clients. Anyone left on the tier default follows these automatically; change a number here and everyone on that tier updates.'),
     el('div',{class:'formgrid'},
       field2('Tier A cadence (days)',el('input',{type:'number',value:s.cadenceA,onchange:e=>{s.cadenceA=+e.target.value||s.cadenceA;queueSave();updateBadges();}})),
@@ -3821,9 +3892,10 @@ async function syncPullIfNewer(silent){
     const f=g.files[s.filename||'pc-bd-vault.json']||Object.values(g.files)[0]; if(!f)return;
     const remote=JSON.parse(f.content);
     if((remote.updatedAt||0) > (STATE.updatedAt||0)){
-      const {key}=await deriveKey(PASSCODE,remote.salt);
+      const kdf=kdfFromBlob(remote);
+      const key=await deriveKeyFor(PASSCODE,kdf);
       const data=await decryptState(remote,key);
-      STATE=data; CRYPTO_KEY=key; VAULT_SALT=remote.salt;
+      STATE=data; CRYPTO_KEY=key; VAULT_KDF=kdf;
       localStorage.setItem(LS_KEY,f.content);
       setSync('Pulled a newer cloud copy ✓'); renderSyncPill('synced'); updateBadges(); go(CUR);
     } else { setSync('Up to date ✓'); renderSyncPill('synced'); }
@@ -3897,11 +3969,12 @@ async function restoreFromCloud(){
   try{
     const g=await ghFetch('/gists/'+gistId,{},token);
     const f=Object.values(g.files)[0]; const remote=JSON.parse(f.content);
-    const {key}=await deriveKey(pass,remote.salt);
-    STATE=await decryptState(remote,key); CRYPTO_KEY=key; VAULT_SALT=remote.salt; PASSCODE=pass;
+    const kdf=kdfFromBlob(remote);
+    const key=await deriveKeyFor(pass,kdf);
+    STATE=await decryptState(remote,key); CRYPTO_KEY=key; VAULT_KDF=kdf; PASSCODE=pass;
     if(!STATE.settings.sync)STATE.settings.sync={filename:'pc-bd-vault.json'};
     Object.assign(STATE.settings.sync,{enabled:true,token,gistId,filename:f.filename||'pc-bd-vault.json'});
-    localStorage.setItem(LS_KEY,f.content); await save(); launch();
+    await save(); await upgradeKdfIfNeeded(); launch();
   }catch(e){
     let msg=e.message;
     if(/401|403|Bad credentials/i.test(msg)) msg='the token was rejected — check it has the "gist" scope and hasn’t expired.';
@@ -3957,18 +4030,21 @@ async function importVault(e){
   const text=await file.text();
   try{
     const blob=JSON.parse(text);
-    const {key}=await deriveKey(PASSCODE,blob.salt);
+    const kdf=kdfFromBlob(blob);
+    const key=await deriveKeyFor(PASSCODE,kdf);
     const data=await decryptState(blob,key); // verify current passcode opens it
-    localStorage.setItem(LS_KEY,text); STATE=data; VAULT_SALT=blob.salt; CRYPTO_KEY=key;
+    localStorage.setItem(LS_KEY,text); STATE=data; VAULT_KDF=kdf; CRYPTO_KEY=key;
+    await upgradeKdfIfNeeded();
     alert('Vault imported. Data loaded.'); updateBadges(); go('today');
   }catch(err){ alert('Could not import: this vault was encrypted with a DIFFERENT passcode, or the file is invalid. Unlock the app with that vault’s passcode first (use “Restore from vault file” on the lock screen).'); }
   e.target.value='';
 }
 async function changePasscode(){
-  const np=prompt('Enter a NEW passcode (min 6 chars):'); if(!np)return; if(np.length<6){alert('Too short.');return;}
-  const np2=prompt('Re-enter the new passcode:'); if(np!==np2){alert('Passcodes do not match.');return;}
-  const {key,salt}=await deriveKey(np); CRYPTO_KEY=key; VAULT_SALT=salt; PASSCODE=np; await save();
-  alert('Passcode changed. Re-export your vault so backups use the new passcode.');
+  const np=prompt('Enter a NEW passphrase (aim for 4+ random words, or 12+ mixed characters):'); if(!np)return;
+  if(pwStrength(np).bits<MIN_PW_BITS){alert('That passphrase is too weak. Use 4+ random words, or 12+ mixed characters.');return;}
+  const np2=prompt('Re-enter the new passphrase:'); if(np!==np2){alert('Passphrases do not match.');return;}
+  VAULT_KDF=newArgonKdf(); CRYPTO_KEY=await deriveKeyFor(np,VAULT_KDF); PASSCODE=np; await save();
+  alert('Passphrase changed. Re-export your vault so backups use the new passphrase.');
 }
 
 /* ============================================================
@@ -3979,7 +4055,9 @@ function initLockUI(){
   const blob=existingBlob();
   const returning=!!blob;
   $('#pc2wrap').classList.toggle('hidden',returning);
-  $('#pcLabel').textContent=returning?'Enter passcode':'Create passcode';
+  $('#pwMeter').classList.toggle('hidden',returning);
+  if(!returning) updatePwMeter();
+  $('#pcLabel').textContent=returning?'Enter passphrase':'Create passphrase';
   $('#lockLead').textContent=returning
     ? 'Enter your passcode to decrypt your data on this device.'
     : 'Set a passcode to encrypt your data on this device. Everything is stored locally and encrypted — nothing is uploaded.';
@@ -3990,17 +4068,23 @@ async function doUnlock(){
   if(!storageOK()){ err.textContent='This browser is blocking local storage — please turn OFF Private Browsing for this site, then reload.'; return; }
   const p1=$('#pc1').value, blob=existingBlob();
   if(blob){ // returning
-    try{
-      const {key}=await deriveKey(p1,blob.salt);
-      STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_SALT=blob.salt; PASSCODE=p1;
-      launch();
-    }catch{ err.textContent='Incorrect passcode.'; }
+    await busyUnlock(async()=>{
+      try{
+        const kdf=kdfFromBlob(blob);
+        const key=await deriveKeyFor(p1,kdf);
+        STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_KDF=kdf; PASSCODE=p1;
+        await upgradeKdfIfNeeded();
+        launch();
+      }catch{ err.textContent='Incorrect passcode.'; }
+    });
   }else{ // new
     const p2=$('#pc2').value;
-    if(p1.length<6){err.textContent='Passcode must be at least 6 characters.';return;}
+    if(pwStrength(p1).bits<MIN_PW_BITS){ err.textContent='Please choose a stronger passphrase — aim for 4+ random words, or 12+ mixed characters.'; return; }
     if(p1!==p2){err.textContent='Passcodes do not match.';return;}
-    const {key,salt}=await deriveKey(p1); CRYPTO_KEY=key; VAULT_SALT=salt; PASSCODE=p1;
-    STATE=seed(); await save(); launch();
+    await busyUnlock(async()=>{
+      VAULT_KDF=newArgonKdf(); CRYPTO_KEY=await deriveKeyFor(p1,VAULT_KDF); PASSCODE=p1;
+      STATE=seed(); await save(); launch();
+    });
   }
 }
 function launch(){
@@ -4009,10 +4093,10 @@ function launch(){
   $('#whoami').textContent=(STATE.settings.userName||'You')+' · Private Capital';
   $('#todayDate').textContent=today().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   updateBadges(); go('today');
-  renderSyncPill();
+  renderSyncPill(); resetIdle();
   if(STATE.settings && STATE.settings.sync && STATE.settings.sync.enabled){ syncPullIfNewer(true); startSyncWatch(); }
 }
-function lockNow(){ clearInterval(syncWatchTimer); STATE=null;CRYPTO_KEY=null;PASSCODE=null; $('#app').classList.add('hidden'); $('#pc1').value='';$('#pc2').value=''; initLockUI(); $('#lock').classList.remove('hidden'); $('#pc1').focus(); }
+function lockNow(){ clearInterval(syncWatchTimer); clearTimeout(idleTimer); STATE=null;CRYPTO_KEY=null;PASSCODE=null;VAULT_KDF=null; $('#app').classList.add('hidden'); $('#pc1').value='';$('#pc2').value=''; initLockUI(); $('#lock').classList.remove('hidden'); $('#pc1').focus(); }
 
 /* restore-from-file on lock screen (forgotten passcode path uses the file's own passcode) */
 async function restoreFromFile(e){
@@ -4020,10 +4104,11 @@ async function restoreFromFile(e){
   const text=await file.text(); const err=$('#lockErr');
   try{
     const blob=JSON.parse(text);
-    const p=prompt('Enter the passcode that this vault file was saved with:'); if(!p)return;
-    const {key}=await deriveKey(p,blob.salt);
-    STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_SALT=blob.salt; PASSCODE=p;
-    localStorage.setItem(LS_KEY,text); launch();
+    const p=prompt('Enter the passcode that this vault file was saved with:'); if(!p){e.target.value='';return;}
+    const kdf=kdfFromBlob(blob);
+    const key=await deriveKeyFor(p,kdf);
+    STATE=await decryptState(blob,key); CRYPTO_KEY=key; VAULT_KDF=kdf; PASSCODE=p;
+    localStorage.setItem(LS_KEY,text); await upgradeKdfIfNeeded(); launch();
   }catch{ err.textContent='Could not restore — wrong passcode or invalid file.'; }
   e.target.value='';
 }
@@ -4033,8 +4118,10 @@ async function restoreFromFile(e){
    ============================================================ */
 $('#unlockBtn').onclick=doUnlock;
 $('#pc1').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
+$('#pc1').addEventListener('input',updatePwMeter);
 $('#pc2').addEventListener('keydown',e=>{if(e.key==='Enter')doUnlock();});
 $('#lockNow').onclick=lockNow;
+initAutoLock();
 $('#restoreLink').onclick=()=>$('#restoreFile').click();
 $('#cloudRestoreLink').onclick=()=>showCloudForm(true);
 $('#cloudBack').onclick=()=>showCloudForm(false);
